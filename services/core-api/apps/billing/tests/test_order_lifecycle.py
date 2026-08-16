@@ -73,10 +73,23 @@ def test_a_provider_outage_leaves_no_half_created_order(citizen, zone, plan_vers
     assert Order.objects.get().status == Order.Status.DRAFT
 
 
-def test_a_later_price_change_does_not_alter_a_placed_order(citizen, zone, plan, plan_version):
+def test_a_draft_can_be_resumed_after_a_provider_outage(citizen, zone, plan_version):
+    MockPaymentProvider.scenario = "provider_unavailable"
+    with pytest.raises(OrderRefused):
+        place_order(citizen, zone, plan_version, "key-1")
+
+    MockPaymentProvider.scenario = "push_success"
     order, _ = place_order(citizen, zone, plan_version, "key-1")
 
-    PlanVersion.objects.create(
+    assert Order.objects.count() == 1
+    assert Payment.objects.count() == 1
+    assert order.status == Order.Status.PENDING
+
+
+def test_a_later_price_change_does_not_alter_a_placed_order(citizen, zone, plan, plan_version):
+    first, _ = place_order(citizen, zone, plan_version, "key-1")
+
+    new_version = PlanVersion.objects.create(
         plan=plan,
         version=2,
         price_xof=99_000,
@@ -84,9 +97,14 @@ def test_a_later_price_change_does_not_alter_a_placed_order(citizen, zone, plan,
         radius_profile_ref="dakar-1h",
         effective_at=timezone.now(),
     )
-    order.refresh_from_db()
+    plan.current_version = new_version
+    plan.save(update_fields=["current_version"])
 
-    assert order.amount_xof == plan_version.price_xof
+    second, _ = place_order(citizen, zone, new_version, "key-2")
+
+    first.refresh_from_db()
+    assert first.amount_xof == plan_version.price_xof
+    assert second.amount_xof == new_version.price_xof
 
 
 def test_paying_an_order_stamps_it(citizen, zone, plan_version):
