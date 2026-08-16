@@ -57,7 +57,7 @@ Le détail fin (sous-tâches) sera tenu dans l'outil de suivi une fois choisi.
 
 | ID | Item |
 |---|---|
-| DW-P5-00 | **Prérequis** : trancher l'[ADR-0006](../adr/0006-integration-openwisp.md) — affectation de groupe RADIUS et déconnexion à la demande absentes de l'API REST |
+| DW-P5-00 | Durcir l'extension OpenWISP ([ADR-0006](../adr/0006-integration-openwisp.md), maquette dans `infra/openwisp-extension/`) : droits par organisation, tests automatisés, version d'OpenWISP épinglée |
 | DW-P5-01 | Instance OpenWISP staging documentée (Ansible) ; configurer `freeradius_allowed_hosts` et `coa_enabled` |
 | DW-P5-02 | OpenWispClient (adaptateur §11) + gestion erreurs/retries/circuit breaker |
 | DW-P5-03 | Sync utilisateurs/profils RADIUS + réconciliation nocturne ; groupes RADIUS pré-provisionnés référencés par `PlanVersion.radius_profile_ref` |

@@ -1,6 +1,7 @@
 # ADR-0006 — Frontière d'intégration OpenWISP après le spike
 
-- Statut : **Proposée — une décision est requise avant la Phase 5**
+- Statut : **Acceptée** — option B retenue le 2026-08-16, et **vérifiée par une maquette
+  fonctionnelle** ([`infra/openwisp-extension/`](../../infra/openwisp-extension/))
 - Date : 2026-08-16
 - Source : [spike OpenWISP](../phase0/06-spike-openwisp.md), cahier des charges §11, §4.3
 - Complète : [ADR-0001](0001-openwisp-systeme-externe.md)
@@ -61,15 +62,41 @@ parallèle de B, pas à sa place.
 
 ## Décision
 
-En attente. **Recommandation : B, complétée par C.**
+**Option B, complétée par C.** Une application d'extension expose les deux endpoints
+manquants ; tout le reste continue de passer par les API officielles.
 
-L'application d'extension reste petite et son périmètre est défini par le manque
-constaté : affectation de groupe RADIUS, déconnexion à la demande, et éventuellement
-création des réglages d'organisation. Tout le reste continue de passer par les API
-officielles.
+La faisabilité n'a pas été supposée : elle a été **démontrée** sur l'instance jetable du
+spike, avec un faux NAS en pyrad pour recevoir réellement les paquets RADIUS.
 
-Cette décision conditionne la Phase 5 et doit être prise avant son démarrage. Elle
-n'empêche pas les Phases 2 à 4, qui s'appuient sur `MockNetworkProvider`.
+### Preuves
+
+| Étape vérifiée | Résultat |
+|---|---|
+| Chargement de l'extension sans toucher au cœur | `INSTALLED_APPS` et `ROOT_URLCONF` étendus depuis `custom_django_settings.py`, importé en fin de `settings.py` |
+| `POST /api/v1/dakar/radius/assign-group/` | HTTP 200 ; `RadiusUserGroup` vérifié en base : une seule affectation, le bon groupe |
+| CoA sur session ouverte | Tâche Celery `perform_change_of_authorization` exécutée, **CoA-Request reçu par le NAS**, CoAACK renvoyé |
+| Attributs réellement transmis | `Session-Timeout=10800`, `CoovaChilli-Max-Total-Octets=3000000000` — les limites du plan atteignent la borne |
+| `POST /api/v1/dakar/radius/disconnect/` | HTTP 200 ; **Disconnect-Request reçu par le NAS** avec `User-Name`, DisconnectACK renvoyé |
+| Authentification | Même `BearerAuthentication` que l'API OpenWISP : un seul jeton de service pour les deux |
+
+### Piège découvert pendant la vérification
+
+La première version de la maquette **supprimait puis recréait** l'affectation de groupe.
+L'endpoint répondait 200, la base était correcte — et **aucun CoA ne partait**.
+
+En cause : openwisp-radius déclenche le CoA depuis un récepteur `pre_save` qui compare le
+groupe stocké au groupe entrant, et abandonne si l'objet n'existe pas encore en base. Une
+ligne neuve n'a pas de contrepartie stockée : le récepteur sort, et le changement
+n'atteint jamais la borne.
+
+L'affectation doit donc être **modifiée en place**. Un test qui se serait arrêté au code
+HTTP 200 aurait laissé passer ce défaut jusqu'en production, où il se serait manifesté
+par des forfaits payés qui ne s'appliquent qu'à la session suivante.
+
+### Portée
+
+Cette décision conditionne la Phase 5. Elle n'empêche pas les Phases 2 à 4, qui
+s'appuient sur `MockNetworkProvider`.
 
 ## Conséquences
 
@@ -80,6 +107,13 @@ n'empêche pas les Phases 2 à 4, qui s'appuient sur `MockNetworkProvider`.
   Les plans ne créent pas de groupes à la volée.
 - Le déploiement doit configurer `freeradius_allowed_hosts` pour n'autoriser que nos
   services à pousser de l'accounting, et `coa_enabled` par organisation.
+- L'extension est une **maquette**, pas du code de production. Avant la Phase 5 :
+  restreindre les droits aux organisations de l'appelant, ajouter des tests automatisés,
+  épingler la version d'OpenWISP validée. Liste complète dans son
+  [README](../../infra/openwisp-extension/README.md).
+- Le quota de trafic est poussé par l'attribut **`CoovaChilli-Max-Total-Octets`**, propre
+  à un fournisseur : les passerelles retenues doivent le comprendre, sans quoi le quota de
+  volume ne s'applique pas côté équipement. À vérifier modèle par modèle (§6.1).
 - Écarts fonctionnels à arbitrer avec la Ville, indépendants de cette décision :
   quota de trafic cumulé au lieu de montant/descendant séparés, absence de compteur
   hebdomadaire, débit et sessions simultanées dépendants du matériel (§8.3, §8.4).

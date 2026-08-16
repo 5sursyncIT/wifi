@@ -113,11 +113,23 @@ framework ne s'introduit que si un écran le justifie, et son coût se mesure :
 node scripts/check-bundle-budget.mjs apps/captive-portal 150
 ```
 
+## Intégration OpenWISP
+
+L'API REST d'OpenWISP ne permet ni d'affecter un groupe RADIUS à un usager, ni de forcer
+une déconnexion — or l'activation d'un forfait après paiement dépend du premier, et le
+§8.8 exige le second. [ADR-0006](docs/adr/0006-integration-openwisp.md) tranche : une
+application d'extension comble les deux manques, **sans fork ni écriture directe en base**.
+
+La maquette est dans [`infra/openwisp-extension/`](infra/openwisp-extension/) et la chaîne
+complète a été prouvée sur une instance jetable, un faux NAS recevant réellement les
+paquets CoA et Disconnect. Elle doit être durcie avant la phase 5 : droits par
+organisation, tests automatisés, version d'OpenWISP épinglée.
+
+Méthode et mesures : [spike OpenWISP](docs/phase0/06-spike-openwisp.md).
+
 ## Points ouverts
 
-- [ADR-0006](docs/adr/0006-integration-openwisp.md) — l'API REST d'OpenWISP ne permet ni
-  d'affecter un groupe RADIUS à un usager, ni de forcer une déconnexion. L'activation de
-  forfait après paiement en dépend : **décision requise avant la phase 5**. Les phases 2
-  à 4 ne sont pas bloquées (elles s'appuient sur `MockNetworkProvider`).
-  Mesures et méthode : [spike OpenWISP](docs/phase0/06-spike-openwisp.md).
+- Validation matérielle (§6.1) : les passerelles retenues doivent écouter les paquets CoA
+  (port 3799) et comprendre `CoovaChilli-Max-Total-Octets`, faute de quoi le quota de
+  volume ne s'applique pas côté équipement.
 - [Questions bloquantes pour la production](CAHIER_DES_CHARGES_DAKAR_WIFI.md#22-questions-à-valider-avant-la-production) — 19 questions (§22).

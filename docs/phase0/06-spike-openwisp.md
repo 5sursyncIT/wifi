@@ -96,7 +96,12 @@ C'est exactement ce qu'il faut pour l'affichage « quota et temps restant » du 
 - **Manque** : aucun moyen de forcer la déconnexion d'un usager à la demande — ni endpoint
   REST, ni déclencheur public. Le §8.8 exige pourtant qu'« un agent autorisé force une
   déconnexion avec justification ».
-- Le comportement réel dépend de la borne (écoute du port 3799) : **à valider en Phase 5**.
+- **Comblé et vérifié** : l'extension décidée en [ADR-0006](../adr/0006-integration-openwisp.md)
+  expose les deux opérations. Un faux NAS (pyrad) a **reçu réellement** le CoA-Request et
+  le Disconnect-Request, avec les limites du plan dans la charge utile
+  (`Session-Timeout=10800`, `CoovaChilli-Max-Total-Octets=3000000000`).
+- Le comportement d'une **borne réelle** (écoute du port 3799, prise en compte de
+  l'attribut `CoovaChilli-Max-Total-Octets`) reste à valider en Phase 5.
 
 ### H6 — Multi-tenant · partielle
 
