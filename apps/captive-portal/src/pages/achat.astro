@@ -53,6 +53,7 @@ import Base from "../layouts/Base.astro";
     >
       <h1 class="text-xl font-bold">Votre accès est activé</h1>
       <p id="recu" class="mt-3"></p>
+      <p id="erreur" class="mt-3 font-medium text-red-700" role="alert" hidden></p>
     </section>
 
     <section id="echec" class="rounded-lg border-2 border-red-600 bg-red-50 p-5 text-red-900" hidden>
@@ -68,6 +69,7 @@ import Base from "../layouts/Base.astro";
 
 <script>
   import { createPortalClient } from "../lib/portal";
+  import { pollOrder } from "../lib/purchase";
 
   const client = createPortalClient(
     import.meta.env.PUBLIC_API_BASE_URL ?? "http://localhost:8000",
@@ -75,9 +77,6 @@ import Base from "../layouts/Base.astro";
   const params = new URLSearchParams(location.search);
   const nasId = params.get("nas_id") ?? "";
   const planVersionId = params.get("offre") ?? "";
-
-  const TERMINAL = new Set<string | undefined>(["paid", "failed", "expired", "cancelled"]);
-  const POLL_MS = 3000;
 
   const show = (id: string) => {
     for (const section of document.querySelectorAll<HTMLElement>("section[id]")) {
@@ -120,27 +119,21 @@ import Base from "../layouts/Base.astro";
 
   async function succeed(orderId: string) {
     window.clearInterval(countdown);
-    const receipt = await client.getReceipt(orderId);
-    document.getElementById("recu")!.textContent =
-      `Commande ${receipt.order_number} — ${receipt.amount_xof} ${receipt.currency}`;
+    const receiptNode = document.getElementById("recu")!;
+    const errorNode = document.getElementById("erreur")!;
+    receiptNode.textContent = "Paiement confirmé. Votre accès est actif.";
+    errorNode.hidden = true;
     show("succes");
-  }
 
-  async function poll(orderId: string, deadline: number) {
-    // Bounded on purpose: the screen stops on a terminal status and at the deadline.
-    // A portal that polls forever keeps a captive mini-browser awake for nothing.
-    if (Date.now() > deadline) return fail("Le délai de paiement est écoulé.");
-
-    const order = await client.getOrder(orderId);
-
-    if (order.status === "paid") {
-      // Paid is not yet usable: the right is activated by the outbox, just after.
-      if (order.entitlement_status === "active") return succeed(orderId);
-    } else if (TERMINAL.has(order.status)) {
-      return fail("Le paiement a été refusé ou la commande a expiré.");
+    try {
+      const receipt = await client.getReceipt(orderId);
+      receiptNode.textContent =
+        `Commande ${receipt.order_number} — ${receipt.amount_xof} ${receipt.currency}`;
+    } catch {
+      errorNode.textContent =
+        "Le paiement a réussi, mais le reçu n’est pas disponible pour le moment.";
+      errorNode.hidden = false;
     }
-
-    window.setTimeout(() => void poll(orderId, deadline), POLL_MS);
   }
 
   async function start() {
@@ -158,7 +151,14 @@ import Base from "../layouts/Base.astro";
         startCountdown(order.expires_at);
       }
 
-      void poll(order.id, deadline);
+      void pollOrder({
+        orderId: order.id,
+        deadline,
+        getOrder: (orderId) => client.getOrder(orderId),
+        onActive: () => succeed(order.id),
+        onExpired: () => fail("Le délai de paiement est écoulé."),
+        onTerminal: () => fail("Le paiement a été refusé ou la commande a expiré."),
+      });
     } catch {
       fail("La commande n'a pas pu être créée. Réessayez dans un instant.");
     }
