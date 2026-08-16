@@ -51,6 +51,19 @@ def test_replaying_an_idempotency_key_returns_the_same_order(citizen, zone, plan
     assert Order.objects.count() == 1
 
 
+def test_replaying_a_placed_order_key_skips_catalogue_validation(citizen, zone, plan, plan_version):
+    first, _ = place_order(citizen, zone, plan_version, "key-1")
+
+    plan.status = Plan.Status.DRAFT
+    plan.save(update_fields=["status"])
+
+    second, _ = place_order(citizen, zone, plan_version, "key-1")
+
+    assert first.pk == second.pk
+    assert second.status in (Order.Status.PENDING, Order.Status.REQUIRES_ACTION)
+    assert Order.objects.count() == 1
+
+
 def test_an_unpublished_plan_cannot_be_bought(citizen, zone, plan, plan_version):
     plan.status = Plan.Status.DRAFT
     plan.save(update_fields=["status"])

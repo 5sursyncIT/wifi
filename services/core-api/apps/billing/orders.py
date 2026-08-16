@@ -7,11 +7,11 @@ Known window, left open on purpose: two concurrent retries of the same still-DRA
 order can each reach the provider call in `place_order` and each start a payment
 intent for that one order. Closing it by reserving the order — moving it to PENDING
 before the provider call — would trade that window for a worse one: a status that
-claims payment started whenever the call fails or times out. The real fix is to pass
-the order's own idempotency key through to `provider.create_payment` so the provider
-de-duplicates the second attempt itself; the contract already hands the whole order to
-`create_payment`, so the plumbing exists, but relying on it needs confirming per
-provider in sandbox, which ADR-0004 already commits phase 7 to.
+claims payment started whenever the call fails or times out. Passing the order's own
+idempotency key through to `provider.create_payment` may let the provider de-duplicate
+the second attempt; the contract already hands the whole order to `create_payment`, but
+whether that works needs confirming per provider in sandbox (ADR-0004 commits phase 7
+to verifying push capability there, not idempotency-key de-duplication explicitly).
 """
 
 import logging
@@ -83,12 +83,15 @@ def place_order(citizen, zone, plan_version, idempotency_key: str) -> tuple[Orde
     The order is committed before the provider is called: a webhook can legitimately
     arrive before the browser comes back (§16.1), and it must find an order to match.
 
-    Validation runs before `get_or_create` so a refused purchase never persists a row.
+    An existing non-DRAFT order under the same idempotency key is returned immediately
+    without re-validating the catalogue (§10.4). Catalogue checks run only when
+    creating a new order or resuming a still-DRAFT one.
+
     `get_or_create` — rather than a hand-rolled filter-then-create — is what keeps two
-    simultaneous requests for the same key from both reading "no existing order" and
-    both racing into the `one_order_per_idempotency_key` constraint: Django retries the
-    read itself when the create loses that race, so the loser gets the winner's row
-    back instead of an unhandled `IntegrityError`.
+    simultaneous first attempts for the same key from both racing into the
+    `one_order_per_idempotency_key` constraint: Django retries the read itself when
+    the create loses that race, so the loser gets the winner's row back instead of an
+    unhandled `IntegrityError`.
 
     The returned payment is `None` only when the replayed key points at an order that
     was cancelled while still a draft (the sole non-draft state `_ALLOWED` lets a draft
@@ -97,6 +100,12 @@ def place_order(citizen, zone, plan_version, idempotency_key: str) -> tuple[Orde
     data inconsistency, so callers must be able to observe it rather than have it
     papered over by a type that promises a payment that does not exist.
     """
+    existing = Order.objects.filter(citizen=citizen, idempotency_key=idempotency_key).first()
+    if existing is not None and existing.status != Order.Status.DRAFT:
+        # Replaying the key must not charge twice (§10.4).
+        payment = existing.payments.order_by("-created_at").first()
+        return existing, payment
+
     if not citizen.is_usable:
         raise OrderRefused("account_unusable", "Ce compte ne peut pas être utilisé.")
 
@@ -107,25 +116,26 @@ def place_order(citizen, zone, plan_version, idempotency_key: str) -> tuple[Orde
     if not plan.zones.filter(pk=zone.pk).exists():
         raise OrderRefused("offer_unavailable", "Cette offre n'est pas proposée ici.")
 
-    order, _created = Order.objects.get_or_create(
-        citizen=citizen,
-        idempotency_key=idempotency_key,
-        defaults={
-            "plan_version": plan_version,
-            "zone": zone,
-            # Frozen here and never read from the plan again: a later price change
-            # must not be retroactive (§8.3).
-            "amount_xof": plan_version.price_xof,
-            "currency": settings.DEFAULT_CURRENCY,
-            "expires_at": timezone.now() + timedelta(seconds=settings.ORDER_PENDING_TTL_SECONDS),
-        },
-    )
-
-    if order.status != Order.Status.DRAFT:
-        # A row that already existed and is past DRAFT was already sent to the
-        # provider; replaying the key must not charge twice (§10.4).
-        payment = order.payments.order_by("-created_at").first()
-        return order, payment
+    if existing is not None:
+        order = existing
+    else:
+        order, _created = Order.objects.get_or_create(
+            citizen=citizen,
+            idempotency_key=idempotency_key,
+            defaults={
+                "plan_version": plan_version,
+                "zone": zone,
+                # Frozen here and never read from the plan again: a later price change
+                # must not be retroactive (§8.3).
+                "amount_xof": plan_version.price_xof,
+                "currency": settings.DEFAULT_CURRENCY,
+                "expires_at": timezone.now()
+                + timedelta(seconds=settings.ORDER_PENDING_TTL_SECONDS),
+            },
+        )
+        if order.status != Order.Status.DRAFT:
+            payment = order.payments.order_by("-created_at").first()
+            return order, payment
 
     provider = get_payment_provider()
     try:
