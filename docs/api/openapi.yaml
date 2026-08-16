@@ -338,6 +338,25 @@ paths:
               schema:
                 $ref: '#/components/schemas/PublicSites'
           description: ''
+  /api/v1/webhooks/payments/{provider}:
+    post:
+      operationId: webhooks_payments_create
+      summary: Webhook de paiement
+      parameters:
+      - in: path
+        name: provider
+        schema:
+          type: string
+        required: true
+      tags:
+      - webhooks
+      responses:
+        '200':
+          description: No response body
+        '400':
+          description: No response body
+        '404':
+          description: No response body
 components:
   schemas:
     Citizen:
