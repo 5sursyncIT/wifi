@@ -126,6 +126,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Commander une offre payante */
+        post: operations["orders_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/{order_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Statut d'une commande */
+        get: operations["orders_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/{order_id}/receipt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reçu d'une commande payée */
+        get: operations["orders_receipt_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/portal/context": {
         parameters: {
             query?: never;
@@ -289,6 +340,30 @@ export interface components {
             /** @description 'ok' or 'error' */
             cache: string;
         };
+        Order: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly order_number: string;
+            amount_xof: number;
+            currency?: string;
+            status?: components["schemas"]["StatusEnum"];
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            paid_at?: string | null;
+            /** @default  */
+            readonly mode: string;
+            /** @default  */
+            readonly instructions: string;
+            /** @default  */
+            readonly redirect_url: string;
+            readonly entitlement_status: string;
+        };
+        OrderRequestRequest: {
+            nas_id: string;
+            /** Format: uuid */
+            plan_version_id: string;
+        };
         OtpRequestRequest: {
             phone: string;
         };
@@ -342,6 +417,14 @@ export interface components {
         PublicSites: {
             sites: components["schemas"]["PublicSite"][];
         };
+        Receipt: {
+            readonly order_number: string;
+            readonly plan_name: string;
+            amount_xof: number;
+            currency?: string;
+            /** Format: date-time */
+            paid_at?: string | null;
+        };
         RefreshRequest: {
             refresh: string;
         };
@@ -350,6 +433,19 @@ export interface components {
             address: string;
             readonly organization: string;
         };
+        /**
+         * @description * `draft` - Brouillon
+         *     * `pending` - En attente de paiement
+         *     * `requires_action` - Action requise
+         *     * `paid` - Payée
+         *     * `failed` - Échouée
+         *     * `expired` - Expirée
+         *     * `cancelled` - Annulée
+         *     * `refunded` - Remboursée
+         *     * `partially_refunded` - Partiellement remboursée
+         * @enum {string}
+         */
+        StatusEnum: "draft" | "pending" | "requires_action" | "paid" | "failed" | "expired" | "cancelled" | "refunded" | "partially_refunded";
         TermsList: {
             terms: components["schemas"]["TermsVersion"][];
         };
@@ -574,6 +670,105 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntitlementList"];
+                };
+            };
+        };
+    };
+    orders_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["OrderRequestRequest"];
+                "multipart/form-data": components["schemas"]["OrderRequestRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    orders_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    orders_receipt_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Receipt"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };

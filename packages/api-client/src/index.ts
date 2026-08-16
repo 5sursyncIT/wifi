@@ -17,6 +17,8 @@ export type TokenPair = Json<paths["/api/v1/auth/otp/verify"]["post"]["responses
 export type Terms = Json<paths["/api/v1/portal/terms"]["get"]["responses"]["200"]>;
 export type Entitlement = Json<paths["/api/v1/portal/free-access"]["post"]["responses"]["201"]>;
 export type Entitlements = Json<paths["/api/v1/me/entitlements"]["get"]["responses"]["200"]>;
+export type Order = Json<paths["/api/v1/orders"]["post"]["responses"]["201"]>;
+export type Receipt = Json<paths["/api/v1/orders/{order_id}/receipt"]["get"]["responses"]["200"]>;
 
 export type PlanOffer = PortalContext["plans"][number];
 export type PublicSite = PublicSites["sites"][number];
@@ -45,6 +47,8 @@ export function createApiClient({ baseUrl, fetchImpl = fetch }: ApiClientOptions
     query?: Record<string, string>;
     body?: unknown;
     method?: string;
+    /** Per-call headers. Only the order endpoints need one, for Idempotency-Key. */
+    headers?: Record<string, string>;
   }
 
   const request = async <T>(path: string, options: RequestOptions = {}): Promise<T> => {
@@ -56,6 +60,7 @@ export function createApiClient({ baseUrl, fetchImpl = fetch }: ApiClientOptions
     const headers: Record<string, string> = { Accept: "application/json" };
     if (options.body !== undefined) headers["Content-Type"] = "application/json";
     if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
+    Object.assign(headers, options.headers ?? {});
 
     const response = await fetchImpl(url, {
       credentials: "include",
@@ -125,6 +130,22 @@ export function createApiClient({ baseUrl, fetchImpl = fetch }: ApiClientOptions
     /** Claim the free allowance of the zone the hotspot resolves to (§8.4). */
     claimFreeAccess: (nasId: string) =>
       request<Entitlement>("/api/v1/portal/free-access", { body: { nas_id: nasId } }),
+
+    /**
+     * Place an order. The key makes a retry safe: replaying it returns the same
+     * order rather than charging twice (§10.4).
+     */
+    createOrder: (nasId: string, planVersionId: string, idempotencyKey: string) =>
+      request<Order>("/api/v1/orders", {
+        body: { nas_id: nasId, plan_version_id: planVersionId },
+        headers: { "Idempotency-Key": idempotencyKey },
+      }),
+
+    /** Status of an order, for the push wait screen. */
+    getOrder: (orderId: string) => request<Order>(`/api/v1/orders/${orderId}`),
+
+    getReceipt: (orderId: string) =>
+      request<Receipt>(`/api/v1/orders/${orderId}/receipt`),
 
     myEntitlements: () => request<Entitlements>("/api/v1/me/entitlements"),
   };

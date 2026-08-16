@@ -184,6 +184,101 @@ paths:
               schema:
                 $ref: '#/components/schemas/EntitlementList'
           description: ''
+  /api/v1/orders:
+    post:
+      operationId: orders_create
+      summary: Commander une offre payante
+      tags:
+      - commandes
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OrderRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OrderRequestRequest'
+        required: true
+      security:
+      - citizenToken: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+  /api/v1/orders/{order_id}:
+    get:
+      operationId: orders_retrieve
+      summary: Statut d'une commande
+      parameters:
+      - in: path
+        name: order_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - commandes
+      security:
+      - citizenToken: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+  /api/v1/orders/{order_id}/receipt:
+    get:
+      operationId: orders_receipt_retrieve
+      summary: Reçu d'une commande payée
+      parameters:
+      - in: path
+        name: order_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - commandes
+      security:
+      - citizenToken: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Receipt'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
   /api/v1/portal/context:
     get:
       operationId: portal_context_retrieve
@@ -488,6 +583,70 @@ components:
       required:
       - cache
       - database
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        order_number:
+          type: string
+          readOnly: true
+        amount_xof:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        currency:
+          type: string
+          maxLength: 3
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+        expires_at:
+          type: string
+          format: date-time
+        paid_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        mode:
+          type: string
+          readOnly: true
+          default: ''
+        instructions:
+          type: string
+          readOnly: true
+          default: ''
+        redirect_url:
+          type: string
+          readOnly: true
+          default: ''
+        entitlement_status:
+          type: string
+          readOnly: true
+      required:
+      - amount_xof
+      - entitlement_status
+      - expires_at
+      - id
+      - instructions
+      - mode
+      - order_number
+      - redirect_url
+    OrderRequestRequest:
+      type: object
+      properties:
+        nas_id:
+          type: string
+          minLength: 1
+          maxLength: 120
+        plan_version_id:
+          type: string
+          format: uuid
+      required:
+      - nas_id
+      - plan_version_id
     OtpRequestRequest:
       type: object
       properties:
@@ -653,6 +812,31 @@ components:
             $ref: '#/components/schemas/PublicSite'
       required:
       - sites
+    Receipt:
+      type: object
+      properties:
+        order_number:
+          type: string
+          readOnly: true
+        plan_name:
+          type: string
+          readOnly: true
+        amount_xof:
+          type: integer
+          maximum: 2147483647
+          minimum: 0
+        currency:
+          type: string
+          maxLength: 3
+        paid_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+      required:
+      - amount_xof
+      - order_number
+      - plan_name
     RefreshRequest:
       type: object
       properties:
@@ -675,6 +859,28 @@ components:
       - address
       - name
       - organization
+    StatusEnum:
+      enum:
+      - draft
+      - pending
+      - requires_action
+      - paid
+      - failed
+      - expired
+      - cancelled
+      - refunded
+      - partially_refunded
+      type: string
+      description: |-
+        * `draft` - Brouillon
+        * `pending` - En attente de paiement
+        * `requires_action` - Action requise
+        * `paid` - Payée
+        * `failed` - Échouée
+        * `expired` - Expirée
+        * `cancelled` - Annulée
+        * `refunded` - Remboursée
+        * `partially_refunded` - Partiellement remboursée
     TermsList:
       type: object
       properties:

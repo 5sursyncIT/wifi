@@ -16,6 +16,9 @@ PROTECTED = [
     ("/api/v1/me", "get"),
     ("/api/v1/me/entitlements", "get"),
     ("/api/v1/portal/free-access", "post"),
+    ("/api/v1/orders", "post"),
+    ("/api/v1/orders/{order_id}", "get"),
+    ("/api/v1/orders/{order_id}/receipt", "get"),
 ]
 
 # Reachable without a token; the contract must not demand one.
@@ -23,6 +26,7 @@ PUBLIC = [
     ("/api/v1/auth/otp/request", "post"),
     ("/api/v1/auth/otp/verify", "post"),
     ("/api/v1/portal/terms", "get"),
+    ("/api/v1/webhooks/payments/{provider}", "post"),
 ]
 
 
