@@ -1,7 +1,7 @@
 # Cahier des charges technique — Plateforme « Dakar WiFi »
 
 > Document de référence destiné à Claude Code et à l'équipe de développement  
-> Version : 1.1  
+> Version : 1.2  
 > Date : 16 août 2026  
 > Commanditaire pressenti : Ville de Dakar  
 > Statut : cadrage initial pour conception et développement d'un pilote
@@ -202,7 +202,8 @@ dakar-wifi/
 
 | Domaine | Choix recommandé |
 |---|---|
-| Portails web | Next.js avec TypeScript, React, rendu mobile-first |
+| Portail captif | Astro en sortie statique, TypeScript, mobile-first — aucun runtime de framework expédié au navigateur (voir ADR-0005) |
+| Back-office | Next.js avec TypeScript et React |
 | UI | Tailwind CSS et bibliothèque de composants accessible |
 | Backend métier | Django, Django REST Framework |
 | Tâches asynchrones | Celery |
@@ -654,7 +655,8 @@ Fournir `MockNetworkProvider` avec les scénarios : succès, timeout, erreur tem
 ### 12.1 Portail captif
 
 - Budget de performance mesurable et vérifié en CI :
-  - bundle JavaScript initial inférieur à 150 Ko compressé ;
+  - bundle JavaScript initial inférieur à 150 Ko compressé — mesuré sur le HTML prérendu,
+    scripts externes **et en ligne** compris (`scripts/check-bundle-budget.mjs`) ;
   - premier affichage utile (FCP) inférieur à 2 secondes et interactivité (TTI) inférieure à 5 secondes sur profil 3G simulé (Lighthouse ou équivalent) ;
   - test régulier sur un Android d'entrée de gamme réel de référence, documenté.
 - Bundle initial réduit ; éviter les bibliothèques lourdes non nécessaires.
@@ -1153,8 +1155,9 @@ N'implémente rien avant d'avoir présenté ce diagnostic. Ne crée aucun connec
 | Version | Date | Modifications |
 |---|---|---|
 | 1.0 | 16 août 2026 | Version initiale |
+| 1.2 | 16 août 2026 | Portail captif sur Astro plutôt que Next.js, back-office inchangé (§5.2) : le plancher de Next.js + React mesuré à 169 Ko gzip rendait la cible de 150 Ko du §12.1 inatteignable avant tout code métier ; après migration, 0,6 Ko. Méthode de mesure du budget précisée (§12.1). Décision documentée en ADR-0005. |
 | 1.1 | 16 août 2026 | Randomisation MAC (§8.1, §16.1, §23) ; walled garden incluant les domaines de paiement (§13.2, §9, §16.1) ; paiement par push serveur comme parcours nominal en mini-navigateur (§8.5, §18 Phase 4, §22) ; spike OpenWISP en Phase 0 (§18, §23) ; TTL des commandes `pending` et webhook post-expiration (§8.5, §16.1, §20) ; entités `Refund`, `OtpRequest`, `SmsMessage`, `SupportTicket`, `WalledGardenEntry` et champ `fees_xof` (§9) ; cadre CDP/loi 2008-12 et arbitrage rétention/minimisation (§13.3, §22) ; budget de performance mesurable du portail (§12.1, §15.3) ; E2E Playwright en CI (§15.3) ; critères d'acceptation évalués par phase (§3.2, §17) ; exploitation locale hors-ligne reclassée en point d'étude (§4.3) ; secrets JWT et peppers dans `.env.example` (§20) ; contenus wolof et pictogrammes (§1 règle 16) ; questions 16 à 19 (§22) |
 
 ---
 
-**Fin du cahier des charges — Version 1.1**
+**Fin du cahier des charges — Version 1.2**

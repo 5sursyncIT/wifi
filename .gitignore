@@ -8,6 +8,7 @@
 # Node
 node_modules/
 .next/
+.astro/
 dist/
 coverage/
 *.tsbuildinfo

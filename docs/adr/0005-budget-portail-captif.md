@@ -1,8 +1,9 @@
 # ADR-0005 — Budget JavaScript du portail captif
 
-- Statut : **Proposée — décision requise du commanditaire**
+- Statut : **Acceptée** — option 2 retenue par le commanditaire le 2026-08-16
 - Date : 2026-08-16
 - Source : cahier des charges v1.1 §12.1, §14
+- Amende : [ADR-0002](0002-stack-monorepo.md)
 
 ## Contexte
 
@@ -45,16 +46,36 @@ avant même d'avoir écrit un seul écran fonctionnel.
 
 ## Décision
 
-En attente. Le garde-fou CI est provisoirement réglé à **175 Ko** : il ne valide pas la
-cible, il empêche la dérive du code applicatif au-delà du plancher constaté.
+**Option 2.** Le portail captif passe sur **Astro** en sortie statique ; le back-office
+reste sur Next.js. Décision prise avant la Phase 2, avant donc l'écriture des premiers
+écrans réels — les changer de stack après coup aurait coûté leur réécriture.
 
-La décision doit être prise **avant la Phase 2**, qui construit les premiers écrans réels
-du portail : changer de stack après coup coûterait la réécriture de ces écrans.
+Mesures après migration, même méthode et même script qu'avant :
+
+| Application | JavaScript initial | Page complète | Budget |
+|---|---:|---:|---|
+| Portail captif (Astro) | **0,6 Ko gzip** | 3,9 Ko gzip | 150 Ko — tenu |
+| Back-office (Next.js 16) | 171,7 Ko gzip | 4,5 Ko gzip | non soumis |
+
+Le portail est passé de 169,9 Ko à 0,6 Ko de JavaScript. Astro n'expédie aucun runtime
+de framework : la page est du HTML, et le seul script est le code métier compilé
+(l'appel au healthcheck), intégré en ligne dans le HTML.
+
+## Règles qui découlent de la décision
+
+- Le portail reste en sortie statique. Toute interactivité s'écrit d'abord en TypeScript
+  simple ; une île de framework (Preact) n'est introduite que si un écran le justifie
+  réellement, et l'ajout se mesure avec le script de budget.
+- Le back-office n'est pas soumis au budget du §12.1 : usage bureau, réseau d'entreprise.
+- `packages/api-client` reste partagé par les deux applications — c'est lui qui porte la
+  sécurité de type sur le contrat. `packages/ui` (React) ne sert plus que le back-office.
+- Le contrôle CI du budget est réglé sur la cible réelle de 150 Ko, plus sur un garde-fou.
 
 ## Conséquences
 
-- Le §12.1 du cahier des charges porte une cible aujourd'hui non tenue ; l'écart est
-  documenté ici plutôt que masqué par un relèvement silencieux du seuil.
-- Le risque R17 (mini-navigateurs captifs) est aggravé par ce poids ; voir le registre
-  des risques.
-- Si l'option 2 est retenue, l'ADR-0002 devra être amendé.
+- Deux chaînes front-end coexistent dans le dépôt. Coût accepté : le portail est de loin
+  la plus simple des deux, et sa simplicité est précisément l'objectif.
+- Le risque R18 est ramené de « élevé » à « faible » ; R17 (mini-navigateurs captifs)
+  reste ouvert, mais sans le handicap du poids.
+- [ADR-0002](0002-stack-monorepo.md) est amendé en conséquence.
+- La PWA du §3.2 reste réalisable : sortie statique et service worker sans contrainte.

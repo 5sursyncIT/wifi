@@ -1,0 +1,24 @@
+---
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <!-- maximum-scale left open: captive mini-browsers must still allow zooming. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b6b5b" />
+    <meta name="description" content="Accès Wi-Fi public de la Ville de Dakar" />
+    <title>{title}</title>
+  </head>
+  <body class="min-h-dvh antialiased">
+    <slot />
+  </body>
+</html>

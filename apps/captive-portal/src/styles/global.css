@@ -10,10 +10,6 @@
   --color-muted: #4a5c58;
 }
 
-:root {
-  color-scheme: light;
-}
-
 body {
   background: var(--color-surface);
   color: var(--color-ink);

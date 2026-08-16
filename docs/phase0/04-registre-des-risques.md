@@ -22,4 +22,4 @@ Reprend le §23 du cahier des charges, avec suivi opérationnel.
 | R15 | Mise à jour OpenWISP difficile | F | M | Pas de fork, adaptateur versionné, staging | Couvert par ADR-0001 |
 | R16 | Écart financier non détecté | M | É | Réconciliation quotidienne, journal d'audit | Couvert par conception (P6) |
 | R17 | Mini-navigateurs captifs hétérogènes (iOS/Android/constructeurs) | É | M | PWA légère, budget perf CI, tests sur appareils réels | Ouvert — parc de test à constituer |
-| R18 | Poids JavaScript du portail au-dessus de la cible §12.1 | **É** | É | Plancher Next.js mesuré à 169 Ko gzip contre 150 Ko visés ; garde-fou CI à 175 Ko ; décision de stack à prendre avant la Phase 2 | **Ouvert — [ADR-0005](../adr/0005-budget-portail-captif.md)** |
+| R18 | Poids JavaScript du portail au-dessus de la cible §12.1 | F | É | Portail migré sur Astro : 0,6 Ko gzip contre 169,9 Ko en Next.js ; contrôle CI sur la cible réelle de 150 Ko | Traité — [ADR-0005](../adr/0005-budget-portail-captif.md) ; surveiller à chaque ajout d'interactivité |

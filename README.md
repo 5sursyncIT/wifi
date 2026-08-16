@@ -51,11 +51,11 @@ Cette commande **refuse de s'exécuter** lorsque `ENVIRONMENT=production`.
 ## Structure
 
 ```text
-apps/captive-portal/    Portail captif (Next.js, mobile-first)
+apps/captive-portal/    Portail captif (Astro, statique, mobile-first)
 apps/admin-dashboard/   Back-office municipal (Next.js)
 services/core-api/      API métier (Django + DRF, Celery)
-packages/api-client/    Client TypeScript généré depuis OpenAPI
-packages/ui/            Composants partagés entre les deux portails
+packages/api-client/    Client TypeScript généré depuis OpenAPI, partagé
+packages/ui/            Composants React du back-office
 packages/config/        Configurations TypeScript partagées
 infra/compose/          Développement local uniquement (jamais la production)
 docs/adr/               Décisions d'architecture
@@ -94,10 +94,27 @@ Aucun secret réel ne doit être committé. `.env` est ignoré par git ; `.env.e
 ne contient que des valeurs fictives. Les secrets de staging et de production
 proviennent d'un coffre externe et ne sont jamais partagés entre environnements.
 
+## Deux stacks front-end, et pourquoi
+
+Le portail captif est en **Astro** et n'expédie aucun runtime de framework : 0,6 Ko de
+JavaScript, contre 169,9 Ko mesurés avec Next.js pour la même page. Il est conçu pour un
+Android d'entrée de gamme sur réseau lent, dans un mini-navigateur captif.
+
+Le back-office reste en **Next.js/React** : usage bureau, réseau d'entreprise, écrans
+riches — le budget du §12.1 ne s'y applique pas.
+
+Ce qu'ils partagent est `packages/api-client`, qui porte la sécurité de type sur le
+contrat d'API. Détail et mesures : [ADR-0005](docs/adr/0005-budget-portail-captif.md).
+
+Toute interactivité ajoutée au portail s'écrit d'abord en TypeScript simple. Une île de
+framework ne s'introduit que si un écran le justifie, et son coût se mesure :
+
+```bash
+node scripts/check-bundle-budget.mjs apps/captive-portal 150
+```
+
 ## Points ouverts
 
-- [ADR-0005](docs/adr/0005-budget-portail-captif.md) — le poids JavaScript du portail
-  dépasse la cible du §12.1 ; **décision requise avant la phase 2**.
 - [Spike OpenWISP](docs/phase0/06-spike-openwisp.md) — sept hypothèses à valider sur les
   API réelles avant d'écrire l'adaptateur.
 - [Questions bloquantes pour la production](CAHIER_DES_CHARGES_DAKAR_WIFI.md#22-questions-à-valider-avant-la-production) — 19 questions (§22).

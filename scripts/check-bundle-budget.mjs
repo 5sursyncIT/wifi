@@ -2,15 +2,16 @@
 /**
  * Enforces the captive portal's initial JavaScript budget (cahier des charges §12.1).
  *
- * Reads the prerendered HTML of the root route and sums the gzipped size of every
- * script it references — what a phone on a slow network actually downloads. Parsing
- * the emitted HTML rather than a bundler manifest keeps this check working across
- * bundler changes.
+ * Reads the prerendered HTML of the root route and measures every byte of JavaScript
+ * the browser loads with it — external files *and* inline module scripts, which some
+ * bundlers emit instead of separate files. Working from the emitted HTML rather than a
+ * bundler manifest keeps the check honest across bundlers; the Astro and Next.js build
+ * layouts are both recognised.
  *
  * Usage: node scripts/check-bundle-budget.mjs <app-dir> [budget-kb]
  */
 import { gzipSync } from "node:zlib";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 const appDir = process.argv[2];
@@ -21,42 +22,82 @@ if (!appDir) {
   process.exit(2);
 }
 
-const nextDir = join(appDir, ".next");
-const htmlPath = join(nextDir, "server", "app", "index.html");
+// Each layout: where the root route's HTML lives, and how an asset URL maps to a file.
+const LAYOUTS = [
+  {
+    name: "astro",
+    html: join(appDir, "dist", "index.html"),
+    toFile: (url) => join(appDir, "dist", url.replace(/^\//, "")),
+  },
+  {
+    name: "next",
+    html: join(appDir, ".next", "server", "app", "index.html"),
+    toFile: (url) => join(appDir, ".next", url.replace("/_next/", "")),
+  },
+];
 
-if (!existsSync(htmlPath)) {
-  console.error(`Build introuvable : ${htmlPath}\nLancez d'abord \`pnpm build\`.`);
+const layout = LAYOUTS.find((candidate) => existsSync(candidate.html));
+
+if (!layout) {
+  console.error(
+    `Build introuvable. Cherché :\n  ${LAYOUTS.map((l) => l.html).join("\n  ")}\n` +
+      "Lancez d'abord `pnpm build`.",
+  );
   process.exit(2);
 }
 
-const html = readFileSync(htmlPath, "utf8");
-const references = [...new Set(html.match(/\/_next\/static\/[^"']*?\.js/g) ?? [])];
+const html = readFileSync(layout.html, "utf8");
 
-if (references.length === 0) {
-  console.error("Aucun script référencé dans le HTML prérendu : vérifiez le build.");
-  process.exit(2);
+// External scripts and module preloads alike: both are fetched on first load.
+const externalUrls = [...new Set([...html.matchAll(/["'](\/[^"']+?\.js)["']/g)].map((m) => m[1]))];
+
+// Inline scripts ship inside the HTML response and count just as much.
+const inlineBodies = [];
+for (const [, attrs, body] of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)) {
+  if (/\bsrc\s*=/.test(attrs)) continue;
+  const type = attrs.match(/\btype\s*=\s*["']([^"']+)["']/)?.[1];
+  if (type && !["module", "text/javascript", "application/javascript"].includes(type)) continue;
+  if (body.trim()) inlineBodies.push(body);
 }
 
 let total = 0;
 const missing = [];
-for (const reference of references) {
-  const file = join(nextDir, reference.replace("/_next/", ""));
+
+for (const url of externalUrls) {
+  const file = layout.toFile(url);
   if (!existsSync(file)) {
-    missing.push(reference);
+    missing.push(url);
     continue;
   }
   total += gzipSync(readFileSync(file)).length;
 }
 
 if (missing.length > 0) {
-  console.error(`Chunks référencés mais absents du build :\n  ${missing.join("\n  ")}`);
+  console.error(`Scripts référencés mais absents du build :\n  ${missing.join("\n  ")}`);
   process.exit(2);
 }
 
-const budgetBytes = budgetKb * 1024;
+// Inline scripts travel in a single HTML response, so they compress together.
+const inlineGzip = inlineBodies.length > 0 ? gzipSync(inlineBodies.join("\n")).length : 0;
+total += inlineGzip;
 
-console.log(`Route /  —  ${references.length} scripts  —  ${(total / 1024).toFixed(1)} Ko gzip`);
-console.log(`Budget   —  ${budgetKb} Ko gzip`);
+const budgetBytes = budgetKb * 1024;
+const htmlGzip = gzipSync(html).length;
+const cssGzip = [...new Set([...html.matchAll(/["'](\/[^"']+?\.css)["']/g)].map((m) => m[1]))]
+  .map((url) => layout.toFile(url))
+  .filter((file) => existsSync(file) && statSync(file).isFile())
+  .reduce((sum, file) => sum + gzipSync(readFileSync(file)).length, 0);
+
+console.log(`Build          : ${layout.name}`);
+console.log(
+  `JavaScript     : ${(total / 1024).toFixed(1)} Ko gzip ` +
+    `(${externalUrls.length} externe(s), ${inlineBodies.length} en ligne)`,
+);
+console.log(`Budget JS      : ${budgetKb} Ko gzip`);
+console.log(
+  `Page complète  : ${((htmlGzip + cssGzip) / 1024).toFixed(1)} Ko gzip ` +
+    `(HTML + CSS, JS en ligne inclus) — indicatif`,
+);
 
 if (total > budgetBytes) {
   console.error(`\n✗ Budget dépassé de ${((total - budgetBytes) / 1024).toFixed(1)} Ko.`);

@@ -10,6 +10,10 @@ type State = { kind: "loading" } | { kind: "ok"; health: HealthResponse } | { ki
  *
  * Never renders placeholder data: a screen that only shows static values would
  * violate rule 14 of the cahier des charges.
+ *
+ * React component, so it serves the back-office only. The captive portal ships no
+ * framework runtime (ADR-0005) and implements its own markup; `@dakar-wifi/api-client`
+ * is what the two share.
  */
 export function ApiStatus({ apiBaseUrl }: { apiBaseUrl: string }) {
   const [state, setState] = useState<State>({ kind: "loading" });

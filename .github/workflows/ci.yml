@@ -64,11 +64,10 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
-      # Cible du cahier des charges : 150 Ko. Le plancher de Next 16 + React 19 étant
-      # mesuré à 169 Ko, ce seuil est un garde-fou anti-régression, pas la cible.
-      # Décision en attente : voir docs/adr/0005-budget-portail-captif.md
+      # Cible du cahier des charges §12.1, tenue depuis le passage du portail à Astro
+      # (ADR-0005). Le back-office n'est pas soumis à ce budget : usage bureau interne.
       - name: Budget de performance du portail (§12.1)
-        run: node scripts/check-bundle-budget.mjs apps/captive-portal 175
+        run: node scripts/check-bundle-budget.mjs apps/captive-portal 150
 
   openapi:
     name: Contrat OpenAPI à jour

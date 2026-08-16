@@ -45,7 +45,8 @@ superuser: ## Crée un compte administrateur Django
 
 test: test-api test-web ## Lance tous les tests
 
-test-api: ## Tests backend (pytest)
+test-api: .env ## Tests backend (pytest, sur PostgreSQL réel)
+	$(COMPOSE) up -d --wait db redis
 	$(API) pytest
 
 test-web: ## Tests front-end (vitest)

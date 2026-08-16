@@ -1,10 +1,8 @@
-import coreWebVitals from "eslint-config-next/core-web-vitals";
-import typescript from "eslint-config-next/typescript";
+import astro from "eslint-plugin-astro";
 
 const config = [
-  { ignores: [".next/**", "node_modules/**"] },
-  ...coreWebVitals,
-  ...typescript,
+  { ignores: ["dist/**", ".astro/**", "node_modules/**"] },
+  ...astro.configs.recommended,
 ];
 
 export default config;
