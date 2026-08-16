@@ -40,6 +40,13 @@ def create_order(request: Request) -> Response:
             "L'en-tête Idempotency-Key est obligatoire.",
             status.HTTP_400_BAD_REQUEST,
         )
+    if len(idempotency_key) > 100:
+        return _error(
+            request,
+            "invalid_idempotency_key",
+            "L'en-tête Idempotency-Key ne peut pas dépasser 100 caractères.",
+            status.HTTP_400_BAD_REQUEST,
+        )
 
     payload = OrderRequestSerializer(data=request.data)
     payload.is_valid(raise_exception=True)

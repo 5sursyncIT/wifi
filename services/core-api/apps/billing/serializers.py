@@ -13,7 +13,7 @@ class OrderRequestSerializer(serializers.Serializer):
 class OrderSerializer(serializers.ModelSerializer):
     mode = serializers.CharField(read_only=True, default="")
     instructions = serializers.CharField(read_only=True, default="")
-    redirect_url = serializers.CharField(read_only=True, default="")
+    redirect_url = serializers.SerializerMethodField()
     entitlement_status = serializers.SerializerMethodField()
 
     class Meta:
@@ -35,6 +35,10 @@ class OrderSerializer(serializers.ModelSerializer):
     def get_entitlement_status(self, order) -> str:
         entitlement = getattr(order, "entitlement", None)
         return entitlement.status if entitlement is not None else ""
+
+    def get_redirect_url(self, order) -> str:
+        payment = order.payments.order_by("-created_at").first()
+        return payment.redirect_url if payment is not None else ""
 
 
 class ReceiptSerializer(serializers.ModelSerializer):

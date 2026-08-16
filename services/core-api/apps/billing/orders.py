@@ -152,6 +152,7 @@ def place_order(citizen, zone, plan_version, idempotency_key: str) -> tuple[Orde
             provider=provider.name,
             mode=intent.mode,
             external_reference=intent.external_reference,
+            redirect_url=intent.redirect_url,
             amount_xof=order.amount_xof,
         )
         target = (

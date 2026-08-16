@@ -61,6 +61,21 @@ def test_the_idempotency_key_is_required(client, auth, hotspot, plan_version):
     assert response.json()["code"] == "idempotency_key_required"
 
 
+def test_an_idempotency_key_longer_than_the_model_limit_is_rejected(
+    client, auth, hotspot, plan_version
+):
+    response = client.post(
+        CREATE_URL,
+        {"nas_id": hotspot.nas_identifier, "plan_version_id": str(plan_version.pk)},
+        content_type="application/json",
+        headers={**auth, "Idempotency-Key": "x" * 101},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["code"] == "invalid_idempotency_key"
+    assert Order.objects.count() == 0
+
+
 def test_replaying_the_key_does_not_place_a_second_order(client, auth, hotspot, plan_version):
     payload = {"nas_id": hotspot.nas_identifier, "plan_version_id": str(plan_version.pk)}
     headers = {**auth, "Idempotency-Key": "key-1"}
@@ -95,6 +110,25 @@ def test_a_citizen_reads_their_own_order(client, auth, hotspot, plan_version):
 
     assert response.status_code == 200
     assert response.json()["order_number"]
+
+
+def test_a_redirect_order_keeps_its_url_for_later_reads(client, auth, hotspot, plan_version):
+    MockPaymentProvider.scenario = "redirect_required"
+    created_response = client.post(
+        CREATE_URL,
+        {"nas_id": hotspot.nas_identifier, "plan_version_id": str(plan_version.pk)},
+        content_type="application/json",
+        headers={**auth, "Idempotency-Key": "key-redirect"},
+    )
+
+    assert created_response.status_code == 201
+    created = created_response.json()
+    assert created["redirect_url"].startswith("https://")
+
+    detail_response = client.get(f"{CREATE_URL}/{created['id']}", headers=auth)
+
+    assert detail_response.status_code == 200
+    assert detail_response.json()["redirect_url"] == created["redirect_url"]
 
 
 def test_a_citizen_cannot_read_someone_elses_order(client, auth, zone, plan_version):

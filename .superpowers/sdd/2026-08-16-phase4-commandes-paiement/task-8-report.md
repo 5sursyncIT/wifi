@@ -36,3 +36,17 @@ No blocking findings. `place_order` can legally return no payment for a replayed
 cancelled draft, so the API returns an empty payment mode/instructions in that edge
 case rather than dereferencing `None`. The view deliberately has no outer transaction,
 preserving commit-before-provider behavior.
+
+## Round 1/5 fixes
+
+- Persisted provider redirect URLs on `Payment` through migration
+  `0002_payment_redirect_url`, and exposed the latest payment URL on both order
+  creation and detail reads.
+- Rejected `Idempotency-Key` values longer than the model's 100-character limit
+  with HTTP 400, code `invalid_idempotency_key`, and a French message.
+- RED evidence: the redirect test received an empty URL; the 101-character key
+  reached PostgreSQL and raised `StringDataRightTruncation`.
+- GREEN evidence: 9 focused order API tests passed.
+- Full verification: 205 API tests passed; Ruff, mypy, migration consistency,
+  and workspace TypeScript checks passed.
+- Open concerns: none.

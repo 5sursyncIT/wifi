@@ -621,7 +621,6 @@ components:
         redirect_url:
           type: string
           readOnly: true
-          default: ''
         entitlement_status:
           type: string
           readOnly: true

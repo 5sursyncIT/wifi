@@ -102,6 +102,7 @@ class Payment(UUIDTimeStampedModel):
     provider = models.CharField(max_length=40)
     mode = models.CharField(max_length=10, choices=Mode.choices)
     external_reference = models.CharField(max_length=120, db_index=True)
+    redirect_url = models.CharField(max_length=500, blank=True, default="")
     amount_xof = models.PositiveIntegerField()
     fees_xof = models.PositiveIntegerField(default=0)
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.INITIATED)

@@ -355,7 +355,6 @@ export interface components {
             readonly mode: string;
             /** @default  */
             readonly instructions: string;
-            /** @default  */
             readonly redirect_url: string;
             readonly entitlement_status: string;
         };
