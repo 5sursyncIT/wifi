@@ -4,6 +4,131 @@ info:
   version: 0.1.0
   description: API de la plateforme Wi-Fi public de la Ville de Dakar.
 paths:
+  /api/v1/auth/logout:
+    post:
+      operationId: auth_logout_create
+      summary: Fermer la session
+      tags:
+      - authentification
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+        required: true
+      responses:
+        '204':
+          description: No response body
+  /api/v1/auth/otp/request:
+    post:
+      operationId: auth_otp_request_create
+      summary: Demander un code de vérification
+      tags:
+      - authentification
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OtpRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OtpRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OtpRequestRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '202':
+          description: No response body
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+  /api/v1/auth/otp/verify:
+    post:
+      operationId: auth_otp_verify_create
+      summary: Vérifier le code et ouvrir une session
+      tags:
+      - authentification
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OtpVerifyRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OtpVerifyRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OtpVerifyRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+  /api/v1/auth/refresh:
+    post:
+      operationId: auth_refresh_create
+      summary: Renouveler la session
+      tags:
+      - authentification
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
   /api/v1/health:
     get:
       operationId: health_retrieve
@@ -26,6 +151,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Health'
+          description: ''
+  /api/v1/me:
+    get:
+      operationId: me_retrieve
+      summary: Profil du citoyen connecté
+      tags:
+      - compte
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Citizen'
+          description: ''
+  /api/v1/me/entitlements:
+    get:
+      operationId: me_entitlements_retrieve
+      summary: Droits d'accès du citoyen connecté
+      tags:
+      - compte
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntitlementList'
           description: ''
   /api/v1/portal/context:
     get:
@@ -56,6 +207,43 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PortalContext'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+  /api/v1/portal/free-access:
+    post:
+      operationId: portal_free_access_create
+      summary: Activer l'accès gratuit de la zone
+      tags:
+      - portail
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FreeAccessRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FreeAccessRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FreeAccessRequestRequest'
+        required: true
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Entitlement'
           description: ''
         '400':
           content:
@@ -105,6 +293,22 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
           description: ''
+  /api/v1/portal/terms:
+    get:
+      operationId: portal_terms_retrieve
+      summary: Conditions à accepter
+      tags:
+      - portail
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TermsList'
+          description: ''
   /api/v1/public/hotspots:
     get:
       operationId: public_hotspots_retrieve
@@ -128,6 +332,73 @@ paths:
           description: ''
 components:
   schemas:
+    Citizen:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        phone_e164:
+          type: string
+        email:
+          type: string
+        preferred_language:
+          type: string
+        status:
+          type: string
+        verified_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+      required:
+      - email
+      - id
+      - phone_e164
+      - preferred_language
+      - status
+      - verified_at
+    Entitlement:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        source:
+          type: string
+        status:
+          type: string
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        zone:
+          type: string
+          readOnly: true
+        plan:
+          type: string
+          readOnly: true
+      required:
+      - ends_at
+      - id
+      - plan
+      - source
+      - starts_at
+      - status
+      - zone
+    EntitlementList:
+      type: object
+      properties:
+        entitlements:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entitlement'
+      required:
+      - entitlements
     Error:
       type: object
       properties:
@@ -151,6 +422,15 @@ components:
       required:
       - active
       - reason
+    FreeAccessRequestRequest:
+      type: object
+      properties:
+        nas_id:
+          type: string
+          minLength: 1
+          maxLength: 120
+      required:
+      - nas_id
     Health:
       type: object
       properties:
@@ -181,6 +461,35 @@ components:
       required:
       - cache
       - database
+    OtpRequestRequest:
+      type: object
+      properties:
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 20
+      required:
+      - phone
+    OtpVerifyRequest:
+      type: object
+      properties:
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 20
+        code:
+          type: string
+          minLength: 1
+          maxLength: 10
+        accepted_terms:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - accepted_terms
+      - code
+      - phone
     PlanOffer:
       type: object
       description: |-
@@ -317,6 +626,14 @@ components:
             $ref: '#/components/schemas/PublicSite'
       required:
       - sites
+    RefreshRequest:
+      type: object
+      properties:
+        refresh:
+          type: string
+          minLength: 1
+      required:
+      - refresh
     Site:
       type: object
       properties:
@@ -331,6 +648,51 @@ components:
       - address
       - name
       - organization
+    TermsList:
+      type: object
+      properties:
+        terms:
+          type: array
+          items:
+            $ref: '#/components/schemas/TermsVersion'
+      required:
+      - terms
+    TermsVersion:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+        version:
+          type: string
+        content_url:
+          type: string
+        summary:
+          type: string
+      required:
+      - content_url
+      - id
+      - summary
+      - type
+      - version
+    TokenPair:
+      type: object
+      properties:
+        access:
+          type: string
+        refresh:
+          type: string
+        access_expires_in:
+          type: integer
+        citizen:
+          $ref: '#/components/schemas/Citizen'
+      required:
+      - access
+      - access_expires_in
+      - citizen
+      - refresh
     Zone:
       type: object
       properties:

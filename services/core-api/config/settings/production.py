@@ -6,13 +6,22 @@ Refuses to start on an insecure configuration rather than running degraded.
 from django.core.exceptions import ImproperlyConfigured
 
 from config.settings.base import *
-from config.settings.base import INSECURE_SECRET_KEY_SENTINEL, SECRET_KEY, env
+from config.settings.base import (
+    INSECURE_JWT_KEY_SENTINEL,
+    INSECURE_SECRET_KEY_SENTINEL,
+    JWT_SIGNING_KEY,
+    SECRET_KEY,
+    env,
+)
 
 DEBUG = False
 ENVIRONMENT = "production"
 
 if SECRET_KEY == INSECURE_SECRET_KEY_SENTINEL:
     raise ImproperlyConfigured("DJANGO_SECRET_KEY must be set in production.")
+
+if JWT_SIGNING_KEY == INSECURE_JWT_KEY_SENTINEL:
+    raise ImproperlyConfigured("JWT_SIGNING_KEY must be set in production.")
 
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
 if not ALLOWED_HOSTS:

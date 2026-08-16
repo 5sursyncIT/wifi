@@ -8,7 +8,9 @@ from django.db import transaction
 from django.utils import timezone
 from django.utils.crypto import get_random_string
 
+from apps.access.models import ZoneFreePolicy
 from apps.catalog.models import Plan, PlanVersion
+from apps.citizens.models import TermsVersion
 from apps.network.models import Hotspot, Organization, Site, Zone
 
 # Internal roles of cahier des charges §7. "Citoyen/Visiteur" is not an internal
@@ -152,6 +154,8 @@ class Command(BaseCommand):
         groups = self._create_roles()
         organization = self._create_network()
         self._create_catalogue(organization)
+        self._create_terms()
+        self._create_free_policies(organization)
 
         # Internal accounts exist for local development only (§21). Their passwords
         # are generated per run and printed once — never stored in the repository.
@@ -247,6 +251,38 @@ class Command(BaseCommand):
                 plan.current_version = version
                 plan.save(update_fields=["current_version"])
         self.stdout.write(self.style.SUCCESS(f"Catalogue: {len(PLANS)} offres publiées."))
+
+    def _create_terms(self) -> None:
+        """Placeholder documents. The real texts come from the City (§22 question 14)."""
+        for document_type in (TermsVersion.Type.TERMS, TermsVersion.Type.PRIVACY):
+            TermsVersion.objects.get_or_create(
+                type=document_type,
+                version="1.0-demo",
+                defaults={
+                    "summary": "Texte de démonstration, sans valeur juridique.",
+                    "published_at": timezone.now(),
+                },
+            )
+        self.stdout.write(self.style.SUCCESS("Conditions : 2 versions de démonstration."))
+
+    def _create_free_policies(self, organization: Organization) -> None:
+        """Free allowance on every zone that is not paid-only."""
+        eligible = Zone.objects.filter(site__organization=organization).exclude(
+            access_mode=Zone.AccessMode.PAID
+        )
+        for zone in eligible:
+            ZoneFreePolicy.objects.get_or_create(
+                zone=zone,
+                defaults={
+                    "daily_seconds": 1800,
+                    "daily_bytes": 300_000_000,
+                    "cooldown_seconds": 86400,
+                    "max_devices": 2,
+                },
+            )
+        self.stdout.write(
+            self.style.SUCCESS(f"Accès gratuit : {eligible.count()} zone(s) configurée(s).")
+        )
 
     def _create_local_accounts(self, groups: dict[str, Group]) -> None:
         user_model = get_user_model()

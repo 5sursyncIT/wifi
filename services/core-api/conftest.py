@@ -69,3 +69,22 @@ def plan_version(plan):
     plan.current_version = version
     plan.save(update_fields=["current_version"])
     return version
+
+
+@pytest.fixture
+def current_terms(db):
+    """The versions a citizen must accept to open an account (§8.1)."""
+    from apps.citizens.models import TermsVersion
+
+    return [
+        TermsVersion.objects.create(
+            type=TermsVersion.Type.TERMS,
+            version="1.0",
+            published_at=datetime(2026, 1, 1, tzinfo=UTC),
+        ),
+        TermsVersion.objects.create(
+            type=TermsVersion.Type.PRIVACY,
+            version="1.0",
+            published_at=datetime(2026, 1, 1, tzinfo=UTC),
+        ),
+    ]

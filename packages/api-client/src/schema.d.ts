@@ -4,6 +4,74 @@
  */
 
 export interface paths {
+    "/api/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Fermer la session */
+        post: operations["auth_logout_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/otp/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Demander un code de vérification */
+        post: operations["auth_otp_request_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/otp/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Vérifier le code et ouvrir une session */
+        post: operations["auth_otp_verify_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Renouveler la session */
+        post: operations["auth_refresh_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health": {
         parameters: {
             query?: never;
@@ -16,6 +84,40 @@ export interface paths {
          * @description Liveness and readiness probe.
          */
         get: operations["health_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Profil du citoyen connecté */
+        get: operations["me_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/entitlements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Droits d'accès du citoyen connecté */
+        get: operations["me_entitlements_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -41,6 +143,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/portal/free-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Activer l'accès gratuit de la zone */
+        post: operations["portal_free_access_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/portal/plans": {
         parameters: {
             query?: never;
@@ -50,6 +169,23 @@ export interface paths {
         };
         /** Offres disponibles pour une borne */
         get: operations["portal_plans_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/terms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Conditions à accepter */
+        get: operations["portal_terms_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -85,6 +221,31 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        Citizen: {
+            /** Format: uuid */
+            id: string;
+            phone_e164: string;
+            email: string;
+            preferred_language: string;
+            status: string;
+            /** Format: date-time */
+            verified_at: string | null;
+        };
+        Entitlement: {
+            /** Format: uuid */
+            id: string;
+            source: string;
+            status: string;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string | null;
+            readonly zone: string;
+            readonly plan: string;
+        };
+        EntitlementList: {
+            entitlements: components["schemas"]["Entitlement"][];
+        };
         Error: {
             code: string;
             message: string;
@@ -93,6 +254,9 @@ export interface components {
         Fallback: {
             active: boolean;
             reason: string;
+        };
+        FreeAccessRequestRequest: {
+            nas_id: string;
         };
         Health: {
             /** @description 'ok' or 'unavailable' */
@@ -107,6 +271,14 @@ export interface components {
             database: string;
             /** @description 'ok' or 'error' */
             cache: string;
+        };
+        OtpRequestRequest: {
+            phone: string;
+        };
+        OtpVerifyRequest: {
+            phone: string;
+            code: string;
+            accepted_terms: string[];
         };
         /**
          * @description Public view of an offer.
@@ -153,10 +325,30 @@ export interface components {
         PublicSites: {
             sites: components["schemas"]["PublicSite"][];
         };
+        RefreshRequest: {
+            refresh: string;
+        };
         Site: {
             name: string;
             address: string;
             readonly organization: string;
+        };
+        TermsList: {
+            terms: components["schemas"]["TermsVersion"][];
+        };
+        TermsVersion: {
+            /** Format: uuid */
+            id: string;
+            type: string;
+            version: string;
+            content_url: string;
+            summary: string;
+        };
+        TokenPair: {
+            access: string;
+            refresh: string;
+            access_expires_in: number;
+            citizen: components["schemas"]["Citizen"];
         };
         Zone: {
             code: string;
@@ -174,6 +366,136 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    auth_logout_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefreshRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["RefreshRequest"];
+                "multipart/form-data": components["schemas"]["RefreshRequest"];
+            };
+        };
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    auth_otp_request_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OtpRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["OtpRequestRequest"];
+                "multipart/form-data": components["schemas"]["OtpRequestRequest"];
+            };
+        };
+        responses: {
+            /** @description No response body */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    auth_otp_verify_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OtpVerifyRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["OtpVerifyRequest"];
+                "multipart/form-data": components["schemas"]["OtpVerifyRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenPair"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    auth_refresh_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefreshRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["RefreshRequest"];
+                "multipart/form-data": components["schemas"]["RefreshRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenPair"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     health_retrieve: {
         parameters: {
             query?: never;
@@ -201,6 +523,44 @@ export interface operations {
             };
         };
     };
+    me_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Citizen"];
+                };
+            };
+        };
+    };
+    me_entitlements_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntitlementList"];
+                };
+            };
+        };
+    };
     portal_context_retrieve: {
         parameters: {
             query: {
@@ -221,6 +581,47 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PortalContext"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    portal_free_access_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FreeAccessRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["FreeAccessRequestRequest"];
+                "multipart/form-data": components["schemas"]["FreeAccessRequestRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Entitlement"];
                 };
             };
             400: {
@@ -275,6 +676,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    portal_terms_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TermsList"];
                 };
             };
         };

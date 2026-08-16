@@ -12,6 +12,7 @@ dependencies = [
     "psycopg[binary]>=3.2",
     "celery>=5.5",
     "redis>=6.0",
+    "pyjwt>=2.10",
 ]
 
 [dependency-groups]

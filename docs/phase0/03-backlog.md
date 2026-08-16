@@ -38,15 +38,20 @@ restent à livrer ; ils dépendent de l'authentification interne, prévue en pha
 
 ## Phase 3 — Comptes, OTP et accès gratuit
 
-| ID | Item |
-|---|---|
-| DW-P3-01 | Modèles User, UserDevice (MAC = indice, §8.1), OtpRequest, SmsMessage |
-| DW-P3-02 | `MockSmsProvider` + interface SmsProvider |
-| DW-P3-03 | Endpoints OTP request/verify/refresh/logout + rate limiting distribué (§13.1) |
-| DW-P3-04 | TermsVersion/Consent versionnés (§8.1) |
-| DW-P3-05 | Entitlement gratuit + règles de quota par zone (§8.4) |
-| DW-P3-06 | `MockNetworkProvider` avec les 7 scénarios du §11.3, interface incluant `assign_plan()` et `disconnect()` ([ADR-0006](../adr/0006-integration-openwisp.md)) |
-| DW-P3-07 | E2E Playwright : parcours gratuit complet (critères 1-3 du §17) |
+| ID | Item | État |
+|---|---|---|
+| DW-P3-01 | Modèles Citizen, CitizenDevice, OtpRequest, SmsMessage, RefreshToken ([ADR-0007](../adr/0007-comptes-citoyens-et-otp.md)) | livré |
+| DW-P3-02 | `MockSmsProvider` + interface SmsProvider | livré |
+| DW-P3-03 | Endpoints OTP request/verify/refresh/logout + limitation d'abus (§13.1) | livré |
+| DW-P3-04 | TermsVersion/Consent versionnés, refus d'activation sans consentement (§8.1) | livré |
+| DW-P3-05 | Entitlement gratuit + règles de quota par zone (§8.4) | livré |
+| DW-P3-06 | `MockNetworkProvider` avec les 7 scénarios du §11.3, `assign_plan()` et `disconnect()` | livré |
+| DW-P3-07 | E2E Playwright : parcours gratuit complet (critères 1-3 du §17) | livré |
+
+**Reste ouvert.** Les appareils (`CitizenDevice`) sont modélisés mais pas encore
+alimentés : la MAC du client n'est pas transmise par le portail tant que la passerelle
+n'est pas en place (phase 5). La limite `max_devices` du §8.4 n'est donc pas encore
+appliquée. L'export et la suppression de compte du §8.1 restent à livrer.
 
 ## Phase 4 — Commandes, paiement mock et abonnements
 

@@ -31,3 +31,5 @@ htmlcov/
 # Local data
 *.sqlite3
 /scratch/
+test-results/
+playwright-report/

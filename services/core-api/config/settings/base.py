@@ -51,6 +51,9 @@ INSTALLED_APPS = [
     "apps.network",
     "apps.catalog",
     "apps.portal",
+    "apps.citizens",
+    "apps.messaging",
+    "apps.access",
 ]
 
 MIDDLEWARE = [
@@ -158,6 +161,25 @@ PAYMENT_PROVIDER = env.str("PAYMENT_PROVIDER", default="mock")
 
 # Hosts the captive portal may redirect a browser to. Compared by exact match
 # (cahier des charges §8.2): anything not listed here is dropped.
+# --- Citizen sessions (cahier des charges §13.1) -----------------------------
+# Sentinel, not a credential: production.py refuses to start on it. Long enough
+# that HMAC-SHA256 does not warn in development.
+INSECURE_JWT_KEY_SENTINEL = "insecure-development-jwt-signing-key-32b"
+JWT_SIGNING_KEY = env.str("JWT_SIGNING_KEY", default=INSECURE_JWT_KEY_SENTINEL)
+CITIZEN_ACCESS_TTL_SECONDS = env.int("JWT_ACCESS_TOKEN_TTL_SECONDS", default=900)
+CITIZEN_REFRESH_TTL_SECONDS = env.int("JWT_REFRESH_TOKEN_TTL_SECONDS", default=1209600)
+
+# --- OTP (cahier des charges §8.1) ------------------------------------------
+# Bounds are configurable because the right values depend on real traffic and on
+# the SMS budget (§22 question 16); the defaults are deliberately strict.
+OTP_HASH_PEPPER = env.str("OTP_HASH_PEPPER", default="change-me")
+OTP_CODE_LENGTH = env.int("OTP_CODE_LENGTH", default=6)
+OTP_TTL_SECONDS = env.int("OTP_TTL_SECONDS", default=300)
+OTP_WINDOW_SECONDS = env.int("OTP_WINDOW_SECONDS", default=900)
+OTP_MAX_PER_PHONE = env.int("OTP_MAX_PER_PHONE", default=3)
+OTP_MAX_PER_IP = env.int("OTP_MAX_PER_IP", default=10)
+OTP_MAX_VERIFY_ATTEMPTS = env.int("OTP_MAX_VERIFY_ATTEMPTS", default=5)
+
 PORTAL_ALLOWED_REDIRECT_HOSTS = env.list("PORTAL_ALLOWED_REDIRECT_HOSTS", default=["localhost"])
 
 CORS_ALLOWED_ORIGINS = env.list(

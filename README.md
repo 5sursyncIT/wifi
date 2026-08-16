@@ -5,11 +5,10 @@ back-office municipal, et intégration OpenWISP pour le réseau et le RADIUS.
 
 Le cahier des charges fait foi : [`CAHIER_DES_CHARGES_DAKAR_WIFI.md`](CAHIER_DES_CHARGES_DAKAR_WIFI.md).
 
-> **État : Phase 2 livrée.** Sites, zones, bornes et offres versionnées sont modélisés ;
-> le portail résout sa zone côté serveur et affiche le catalogue correspondant ; le
-> back-office expose la carte des sites. L'inscription par OTP arrive en phase 3 et le
-> paiement en phase 4 — voir [le backlog](docs/phase0/03-backlog.md). Les écrans
-> interrogent l'API réelle, jamais des données figées.
+> **État : Phase 3 livrée.** Un citoyen s'inscrit par OTP, accepte les conditions
+> versionnées et obtient l'accès gratuit de sa zone, en trois écrans. Le paiement arrive
+> en phase 4 — voir [le backlog](docs/phase0/03-backlog.md). Les écrans interrogent
+> l'API réelle, jamais des données figées.
 
 Pour voir le portail avec les données de démonstration :
 `make dev`, puis <http://localhost:3000/?nas_id=demo-nas-001>
@@ -85,6 +84,7 @@ Ne jamais modifier `packages/api-client/src/schema.d.ts` à la main.
 ```bash
 make check   # lint + types + tests, comme la CI
 make test    # tests seuls (pytest et vitest)
+make e2e     # parcours bout en bout (nécessite make up && make seed)
 make lint
 make typecheck
 ```

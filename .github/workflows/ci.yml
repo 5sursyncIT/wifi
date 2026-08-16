@@ -69,6 +69,64 @@ jobs:
       - name: Budget de performance du portail (§12.1)
         run: node scripts/check-bundle-budget.mjs apps/captive-portal 150
 
+  e2e:
+    name: Parcours bout en bout
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: dakar
+          POSTGRES_PASSWORD: dakar
+          POSTGRES_DB: dakar_wifi
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U dakar -d dakar_wifi"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      ENVIRONMENT: local
+      DATABASE_URL: postgresql://dakar:dakar@localhost:5432/dakar_wifi
+      REDIS_URL: redis://localhost:6379/0
+      PUBLIC_API_BASE_URL: http://localhost:8000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: uv sync --frozen --directory services/core-api
+      - run: pnpm install --frozen-lockfile
+      - name: Prépare la base et les données de démonstration
+        run: |
+          uv run --directory services/core-api python manage.py migrate
+          uv run --directory services/core-api python manage.py seed_demo_data
+      - name: Démarre l'API
+        run: |
+          uv run --directory services/core-api python manage.py runserver 0.0.0.0:8000 &
+          timeout 60 sh -c 'until curl -sf http://localhost:8000/api/v1/health; do sleep 2; done'
+      - run: pnpm --filter @dakar-wifi/captive-portal build
+      - name: Navigateur Playwright
+        run: pnpm --filter @dakar-wifi/captive-portal exec playwright install --with-deps chromium
+      - name: Parcours gratuit
+        run: pnpm --filter @dakar-wifi/captive-portal test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: apps/captive-portal/test-results/
+          retention-days: 7
+
   openapi:
     name: Contrat OpenAPI à jour
     runs-on: ubuntu-latest

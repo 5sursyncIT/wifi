@@ -4,7 +4,7 @@ MANAGE := ENVIRONMENT=local $(API) python manage.py
 
 .DEFAULT_GOAL := help
 .PHONY: help setup up down logs dev migrate makemigrations seed superuser \
-        test test-api test-web lint typecheck format openapi check clean
+        test test-api test-web e2e lint typecheck format openapi check clean
 
 help: ## Affiche cette aide
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -19,7 +19,9 @@ setup: .env ## Installe toutes les dépendances (JS et Python)
 	uv sync --directory services/core-api
 
 up: .env ## Démarre la base, le cache, l'API et le worker
-	$(COMPOSE) up -d --wait
+	# --build : sans cela, une dépendance ajoutée au pyproject manque dans l'image
+	# et l'API échoue à l'import, loin de la cause.
+	$(COMPOSE) up -d --build --wait
 	$(MAKE) migrate
 
 down: ## Arrête les services (les données sont conservées)
@@ -44,6 +46,10 @@ superuser: ## Crée un compte administrateur Django
 	$(MANAGE) createsuperuser
 
 test: test-api test-web ## Lance tous les tests
+
+e2e: ## Parcours bout en bout (nécessite `make up` puis `make seed`)
+	pnpm --filter @dakar-wifi/captive-portal build
+	pnpm --filter @dakar-wifi/captive-portal test:e2e
 
 test-api: .env ## Tests backend (pytest, sur PostgreSQL réel)
 	$(COMPOSE) up -d --wait db redis
