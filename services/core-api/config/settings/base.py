@@ -169,6 +169,16 @@ OUTBOX_BACKOFF_BASE_SECONDS = env.int("OUTBOX_BACKOFF_BASE_SECONDS", default=5)
 # delay a claim is presumed dead and the message is picked up again.
 OUTBOX_CLAIM_TIMEOUT_SECONDS = env.int("OUTBOX_CLAIM_TIMEOUT_SECONDS", default=300)
 
+# --- Billing (cahier des charges §8.5) --------------------------------------
+
+ORDER_PENDING_TTL_SECONDS = env.int("ORDER_PENDING_TTL_SECONDS", default=1800)
+PAYMENT_RECONCILE_AFTER_SECONDS = env.int("PAYMENT_RECONCILE_AFTER_SECONDS", default=300)
+
+# Sentinel, not a credential: production.py refuses to start on it, exactly as for
+# JWT_SIGNING_KEY.
+INSECURE_WEBHOOK_SECRET_SENTINEL = "insecure-development-payment-webhook-secret"  # noqa: S105
+PAYMENT_WEBHOOK_SECRET = env.str("PAYMENT_WEBHOOK_SECRET", default=INSECURE_WEBHOOK_SECRET_SENTINEL)
+
 # --- Security ---------------------------------------------------------------
 
 # Hosts the captive portal may redirect a browser to. Compared by exact match
