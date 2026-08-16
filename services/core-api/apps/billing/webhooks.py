@@ -18,6 +18,7 @@ from apps.billing.models import Order, WebhookEvent
 from apps.billing.orders import InvalidTransition, mark_failed, mark_paid
 from apps.billing.providers import get_payment_provider, is_known_provider
 from apps.core.outbox import enqueue
+from apps.core.tasks import drain_outbox
 
 logger = logging.getLogger(__name__)
 PROCESSED_EVENT_CONSTRAINT = "one_processed_delivery_per_event"
@@ -174,4 +175,7 @@ def handle(provider_name: str, headers: Mapping[str, str], body: bytes) -> Webho
         )
         return WebhookResult(WebhookEvent.Outcome.DUPLICATE, 200)
 
+    # Fast path: drain as soon as the transaction is durable. The beat remains the
+    # safety net if this worker dies before the task is picked up.
+    transaction.on_commit(drain_outbox.delay)
     return WebhookResult(WebhookEvent.Outcome.PROCESSED, 200)

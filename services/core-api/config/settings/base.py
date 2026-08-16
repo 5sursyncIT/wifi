@@ -107,6 +107,16 @@ CELERY_BROKER_URL = env.str("CELERY_BROKER_URL", default=REDIS_URL)
 CELERY_RESULT_BACKEND = env.str("CELERY_RESULT_BACKEND", default=REDIS_URL)
 CELERY_TASK_ALWAYS_EAGER = False
 CELERY_TIMEZONE = "UTC"
+CELERY_BEAT_SCHEDULE = {
+    # The drain also runs on commit for latency; this beat is the recovery path for
+    # when a worker died between the commit and the call (§11.2).
+    "drain-outbox": {"task": "core.drain_outbox", "schedule": 30.0},
+    "expire-pending-orders": {"task": "billing.expire_pending_orders", "schedule": 60.0},
+    "reconcile-pending-payments": {
+        "task": "billing.reconcile_pending_payments",
+        "schedule": 300.0,
+    },
+}
 
 # --- Localisation -----------------------------------------------------------
 

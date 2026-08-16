@@ -56,6 +56,20 @@ def test_the_scheduled_activation_makes_the_right_live(client, placed):
     assert placed.entitlement.status == Entitlement.Status.ACTIVE
 
 
+def test_a_successful_webhook_drains_the_outbox_after_commit(
+    client, placed, django_capture_on_commit_callbacks
+):
+    body, headers = MockPaymentProvider.build_webhook(placed)
+
+    with django_capture_on_commit_callbacks(execute=True):
+        response = post(client, body, headers)
+
+    assert response.status_code == 200
+    placed.refresh_from_db()
+    assert placed.entitlement.status == Entitlement.Status.ACTIVE
+    assert OutboxMessage.objects.get().status == OutboxMessage.Status.DONE
+
+
 def test_a_webhook_arriving_before_the_browser_returns_is_honoured(client, placed):
     """§16.1 — nothing special is needed, and a test keeps it that way.
 
