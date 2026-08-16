@@ -20,15 +20,21 @@ Le détail fin (sous-tâches) sera tenu dans l'outil de suivi une fois choisi.
 
 ## Phase 2 — Sites, zones, plans et portail
 
-| ID | Item |
-|---|---|
-| DW-P2-01 | Modèles Organization, Site, Zone, Hotspot + migrations + admin |
-| DW-P2-02 | Modèles Plan / PlanVersion immuable + statuts de publication (§8.3) |
-| DW-P2-03 | Résolution serveur du contexte hotspot, refus des paramètres non autorisés (§8.2) |
-| DW-P2-04 | `GET /portal/context` et `GET /portal/plans` |
-| DW-P2-05 | UI portail : accueil zone, catalogue des offres, mode repli hotspot mal configuré |
-| DW-P2-06 | Back-office : CRUD sites/zones/hotspots/plans avec rôles de base |
-| DW-P2-07 | Carte Leaflet/OSM avec clustering et fiche de santé placeholder (§8.9) |
+| ID | Item | État |
+|---|---|---|
+| DW-P2-01 | Modèles Organization, Site, Zone, Hotspot + migrations + admin | livré |
+| DW-P2-02 | Modèles Plan / PlanVersion immuable + statuts de publication (§8.3) | livré |
+| DW-P2-03 | Résolution serveur du contexte hotspot, refus des paramètres non autorisés (§8.2) | livré |
+| DW-P2-04 | `GET /portal/context`, `GET /portal/plans`, `GET /public/hotspots` | livré |
+| DW-P2-05 | UI portail : accueil zone, catalogue des offres, mode repli hotspot mal configuré | livré |
+| DW-P2-06 | Back-office : configuration par l'admin Django ; écrans Next.js dédiés | **partiel** |
+| DW-P2-07 | Carte Leaflet/OSM avec clustering et filtre par mode d'accès (§8.9) | livré |
+
+**DW-P2-06 — ce qui reste.** La configuration complète (sites, zones, bornes, offres,
+versions) se fait dans l'administration Django, avec les versions d'offre en lecture
+seule pour respecter le §8.3. Le back-office Next.js n'expose à ce stade que la carte
+et la liste des sites. Les écrans de configuration dédiés et les rôles fins (§7)
+restent à livrer ; ils dépendent de l'authentification interne, prévue en phase 3.
 
 ## Phase 3 — Comptes, OTP et accès gratuit
 

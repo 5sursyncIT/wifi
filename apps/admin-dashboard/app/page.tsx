@@ -11,12 +11,20 @@ export default function HomePage() {
       </header>
 
       <section className="rounded-lg border-2 border-amber-500 bg-amber-50 p-4">
-        <h2 className="font-bold text-amber-900">Squelette — Phase 1</h2>
+        <h2 className="font-bold text-amber-900">Phase 2 en cours</h2>
         <p className="mt-1 text-sm text-amber-900">
-          Les écrans d’exploitation (sites, zones, offres, finance) arrivent à partir de la phase 2.
-          L’authentification interne passe pour l’instant par l’administration Django.
+          La carte des sites est disponible. La configuration (zones, bornes, offres) se fait
+          dans l’administration Django ; les écrans dédiés et la finance arrivent aux phases
+          suivantes. L’authentification interne passe par l’administration Django.
         </p>
       </section>
+
+      <nav className="rounded-lg border border-black/10 bg-white p-4">
+        <h2 className="mb-3 font-bold">Exploitation</h2>
+        <a className="text-[var(--color-brand)] underline" href="/sites">
+          Sites et points d’accès
+        </a>
+      </nav>
 
       <section className="rounded-lg border border-black/10 bg-white p-4">
         <h2 className="mb-3 font-bold">État du service</h2>

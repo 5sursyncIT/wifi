@@ -27,8 +27,130 @@ paths:
               schema:
                 $ref: '#/components/schemas/Health'
           description: ''
+  /api/v1/portal/context:
+    get:
+      operationId: portal_context_retrieve
+      summary: Contexte du portail pour une borne
+      parameters:
+      - in: query
+        name: nas_id
+        schema:
+          type: string
+        description: Identifiant réseau présenté par la borne. Seule source de vérité
+          pour résoudre la zone.
+        required: true
+      - in: query
+        name: redirect_url
+        schema:
+          type: string
+        description: URL de retour fournie par la passerelle. Ignorée si son hôte
+          n'est pas explicitement autorisé.
+      tags:
+      - portail
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortalContext'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+  /api/v1/portal/plans:
+    get:
+      operationId: portal_plans_retrieve
+      summary: Offres disponibles pour une borne
+      parameters:
+      - in: query
+        name: nas_id
+        schema:
+          type: string
+        description: Identifiant réseau présenté par la borne. Seule source de vérité
+          pour résoudre la zone.
+        required: true
+      tags:
+      - portail
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortalPlans'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+  /api/v1/public/hotspots:
+    get:
+      operationId: public_hotspots_retrieve
+      description: |-
+        Sites the City publishes on its public map.
+
+        Only sites explicitly marked public and actually geolocated are returned, and
+        no equipment identifier ever leaves this endpoint (§8.9).
+      summary: Carte publique des points d'accès
+      tags:
+      - portail
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicSites'
+          description: ''
 components:
   schemas:
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        request_id:
+          type: string
+      required:
+      - code
+      - message
+      - request_id
+    Fallback:
+      type: object
+      properties:
+        active:
+          type: boolean
+        reason:
+          type: string
+      required:
+      - active
+      - reason
     Health:
       type: object
       properties:
@@ -59,6 +181,175 @@ components:
       required:
       - cache
       - database
+    PlanOffer:
+      type: object
+      description: |-
+        Public view of an offer.
+
+        Deliberately omits `radius_profile_ref`: RADIUS references belong to the network
+        layer and must never appear in a payload served to a browser (§8.9).
+      properties:
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+        price_xof:
+          type: integer
+          readOnly: true
+        currency:
+          type: string
+          readOnly: true
+        connection_seconds:
+          type:
+          - integer
+          - 'null'
+          readOnly: true
+        validity_seconds:
+          type:
+          - integer
+          - 'null'
+          readOnly: true
+        quota_total_bytes:
+          type:
+          - integer
+          - 'null'
+          readOnly: true
+        bandwidth_down_kbps:
+          type:
+          - integer
+          - 'null'
+          readOnly: true
+        bandwidth_up_kbps:
+          type:
+          - integer
+          - 'null'
+          readOnly: true
+        max_simultaneous_sessions:
+          type: integer
+          readOnly: true
+      required:
+      - bandwidth_down_kbps
+      - bandwidth_up_kbps
+      - code
+      - connection_seconds
+      - currency
+      - description
+      - max_simultaneous_sessions
+      - name
+      - price_xof
+      - quota_total_bytes
+      - type
+      - validity_seconds
+    PortalContext:
+      type: object
+      properties:
+        zone:
+          $ref: '#/components/schemas/Zone'
+        site:
+          $ref: '#/components/schemas/Site'
+        fallback:
+          $ref: '#/components/schemas/Fallback'
+        plans:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlanOffer'
+        redirect_url:
+          type:
+          - string
+          - 'null'
+      required:
+      - fallback
+      - plans
+      - redirect_url
+      - site
+      - zone
+    PortalPlans:
+      type: object
+      properties:
+        plans:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlanOffer'
+      required:
+      - plans
+    PublicSite:
+      type: object
+      description: Map entry. Carries nothing that identifies equipment (§8.9).
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+        latitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+        longitude:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,6})?$
+        status:
+          type: string
+        hotspot_count:
+          type: integer
+        access_modes:
+          type: array
+          items:
+            type: string
+      required:
+      - access_modes
+      - address
+      - hotspot_count
+      - latitude
+      - longitude
+      - name
+      - status
+    PublicSites:
+      type: object
+      properties:
+        sites:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicSite'
+      required:
+      - sites
+    Site:
+      type: object
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+        organization:
+          type: string
+          readOnly: true
+      required:
+      - address
+      - name
+      - organization
+    Zone:
+      type: object
+      properties:
+        code:
+          type: string
+        label:
+          type: string
+        access_mode:
+          type: string
+        timezone:
+          type: string
+        welcome_message:
+          type: string
+      required:
+      - access_mode
+      - code
+      - label
+      - timezone
+      - welcome_message
   securitySchemes:
     cookieAuth:
       type: apiKey

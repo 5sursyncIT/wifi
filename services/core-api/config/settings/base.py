@@ -48,6 +48,9 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "corsheaders",
     "apps.core",
+    "apps.network",
+    "apps.catalog",
+    "apps.portal",
 ]
 
 MIDDLEWARE = [
@@ -152,6 +155,10 @@ SMS_PROVIDER = env.str("SMS_PROVIDER", default="mock")
 PAYMENT_PROVIDER = env.str("PAYMENT_PROVIDER", default="mock")
 
 # --- Security ---------------------------------------------------------------
+
+# Hosts the captive portal may redirect a browser to. Compared by exact match
+# (cahier des charges §8.2): anything not listed here is dropped.
+PORTAL_ALLOWED_REDIRECT_HOSTS = env.list("PORTAL_ALLOWED_REDIRECT_HOSTS", default=["localhost"])
 
 CORS_ALLOWED_ORIGINS = env.list(
     "CORS_ALLOWED_ORIGINS",

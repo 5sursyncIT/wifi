@@ -24,10 +24,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/portal/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Contexte du portail pour une borne */
+        get: operations["portal_context_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portal/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Offres disponibles pour une borne */
+        get: operations["portal_plans_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/hotspots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Carte publique des points d'accès
+         * @description Sites the City publishes on its public map.
+         *
+         *     Only sites explicitly marked public and actually geolocated are returned, and
+         *     no equipment identifier ever leaves this endpoint (§8.9).
+         */
+        get: operations["public_hotspots_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        Error: {
+            code: string;
+            message: string;
+            request_id: string;
+        };
+        Fallback: {
+            active: boolean;
+            reason: string;
+        };
         Health: {
             /** @description 'ok' or 'unavailable' */
             status: string;
@@ -41,6 +107,63 @@ export interface components {
             database: string;
             /** @description 'ok' or 'error' */
             cache: string;
+        };
+        /**
+         * @description Public view of an offer.
+         *
+         *     Deliberately omits `radius_profile_ref`: RADIUS references belong to the network
+         *     layer and must never appear in a payload served to a browser (§8.9).
+         */
+        PlanOffer: {
+            code: string;
+            name: string;
+            description: string;
+            type: string;
+            readonly price_xof: number;
+            readonly currency: string;
+            readonly connection_seconds: number | null;
+            readonly validity_seconds: number | null;
+            readonly quota_total_bytes: number | null;
+            readonly bandwidth_down_kbps: number | null;
+            readonly bandwidth_up_kbps: number | null;
+            readonly max_simultaneous_sessions: number;
+        };
+        PortalContext: {
+            zone: components["schemas"]["Zone"];
+            site: components["schemas"]["Site"];
+            fallback: components["schemas"]["Fallback"];
+            plans: components["schemas"]["PlanOffer"][];
+            redirect_url: string | null;
+        };
+        PortalPlans: {
+            plans: components["schemas"]["PlanOffer"][];
+        };
+        /** @description Map entry. Carries nothing that identifies equipment (§8.9). */
+        PublicSite: {
+            name: string;
+            address: string;
+            /** Format: decimal */
+            latitude: string;
+            /** Format: decimal */
+            longitude: string;
+            status: string;
+            hotspot_count: number;
+            access_modes: string[];
+        };
+        PublicSites: {
+            sites: components["schemas"]["PublicSite"][];
+        };
+        Site: {
+            name: string;
+            address: string;
+            readonly organization: string;
+        };
+        Zone: {
+            code: string;
+            label: string;
+            access_mode: string;
+            timezone: string;
+            welcome_message: string;
         };
     };
     responses: never;
@@ -74,6 +197,103 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Health"];
+                };
+            };
+        };
+    };
+    portal_context_retrieve: {
+        parameters: {
+            query: {
+                /** @description Identifiant réseau présenté par la borne. Seule source de vérité pour résoudre la zone. */
+                nas_id: string;
+                /** @description URL de retour fournie par la passerelle. Ignorée si son hôte n'est pas explicitement autorisé. */
+                redirect_url?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortalContext"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    portal_plans_retrieve: {
+        parameters: {
+            query: {
+                /** @description Identifiant réseau présenté par la borne. Seule source de vérité pour résoudre la zone. */
+                nas_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortalPlans"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    public_hotspots_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicSites"];
                 };
             };
         };
