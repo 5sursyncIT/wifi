@@ -56,6 +56,13 @@ def test_context_reports_amounts_as_integers_in_xof(client, hotspot, published_p
 
 
 @pytest.mark.django_db
+def test_context_exposes_the_version_identifier_needed_to_buy(client, hotspot, published_plan):
+    body = client.get(CONTEXT_URL, {"nas_id": hotspot.nas_identifier}).json()
+
+    assert body["plans"][0]["plan_version_id"] == str(published_plan.current_version_id)
+
+
+@pytest.mark.django_db
 def test_context_never_exposes_the_radius_profile(client, hotspot, published_plan):
     # RADIUS references belong to the network layer, never to a public payload (§8.9).
     assert (

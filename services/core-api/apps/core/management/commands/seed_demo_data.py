@@ -89,6 +89,19 @@ PLANS: list[dict[str, Any]] = [
         },
     },
     {
+        "code": "pass-dakar-1h",
+        "name": "Pass Dakar 1 heure",
+        "description": "Une heure de connexion sur la zone de démonstration.",
+        "type": Plan.Type.PAID,
+        "priority": 15,
+        "zone_code": "demo-independance",
+        "version": {
+            "price_xof": 500,
+            "connection_seconds": 3600,
+            "radius_profile_ref": "dakar-1h",
+        },
+    },
+    {
         "code": "heure-1",
         "name": "1 heure",
         "description": "Une heure de connexion, débit confortable.",
@@ -237,12 +250,17 @@ class Command(BaseCommand):
             if created:
                 # The free offer is available everywhere; paid offers only where
                 # the zone actually sells something.
-                eligible = (
-                    zones
-                    if spec["type"] == Plan.Type.FREE
-                    else [z for z in zones if z.access_mode != Zone.AccessMode.FREE]
-                )
-                plan.zones.set(eligible)
+                if "zone_code" not in spec:
+                    eligible = (
+                        zones
+                        if spec["type"] == Plan.Type.FREE
+                        else [z for z in zones if z.access_mode != Zone.AccessMode.FREE]
+                    )
+                    plan.zones.set(eligible)
+
+            if zone_code := spec.get("zone_code"):
+                zone = next(zone for zone in zones if zone.code == zone_code)
+                plan.zones.add(zone)
 
             if plan.current_version is None:
                 version = PlanVersion.objects.create(

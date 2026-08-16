@@ -691,6 +691,10 @@ components:
           type: string
         type:
           type: string
+        plan_version_id:
+          type: string
+          format: uuid
+          readOnly: true
         price_xof:
           type: integer
           readOnly: true
@@ -734,6 +738,7 @@ components:
       - description
       - max_simultaneous_sessions
       - name
+      - plan_version_id
       - price_xof
       - quota_total_bytes
       - type

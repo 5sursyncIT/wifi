@@ -382,6 +382,8 @@ export interface components {
             name: string;
             description: string;
             type: string;
+            /** Format: uuid */
+            readonly plan_version_id: string;
             readonly price_xof: number;
             readonly currency: string;
             readonly connection_seconds: number | null;

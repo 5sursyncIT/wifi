@@ -30,6 +30,14 @@ const REFUSAL_MESSAGES: Record<string, string> = {
   account_unusable: "Ce compte ne peut pas être utilisé. Contactez la Ville.",
 };
 
+const ACCESS_TOKEN_KEY = "dakar-wifi:access-token";
+
+export function createPortalClient(apiBaseUrl: string): ApiClient {
+  const client = createApiClient({ baseUrl: apiBaseUrl });
+  client.setAccessToken(sessionStorage.getItem(ACCESS_TOKEN_KEY));
+  return client;
+}
+
 function element<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   className: string,
@@ -64,7 +72,14 @@ function primaryButton(label: string): HTMLButtonElement {
   return button;
 }
 
-function offerCard(offer: PlanOffer, onChoose: (offer: PlanOffer) => void): HTMLElement {
+function purchaseUrl(nasId: string, offer: PlanOffer): string {
+  return `/achat?${new URLSearchParams({
+    nas_id: nasId,
+    offre: offer.plan_version_id,
+  }).toString()}`;
+}
+
+function offerCard(offer: PlanOffer, nasId: string, onChoose: (offer: PlanOffer) => void): HTMLElement {
   const card = element("li", "rounded-lg border border-black/15 p-4");
 
   const header = element("div", "flex items-baseline justify-between gap-3");
@@ -98,21 +113,20 @@ function offerCard(offer: PlanOffer, onChoose: (offer: PlanOffer) => void): HTML
     card.append(list);
   }
 
-  const action = primaryButton(offer.type === "free" ? "Se connecter gratuitement" : "Choisir");
+  const action = primaryButton(
+    offer.type === "free" ? "Se connecter gratuitement" : `Acheter ${offer.name}`,
+  );
   action.classList.add("mt-4");
   if (offer.type === "free") {
     action.addEventListener("click", () => onChoose(offer));
   } else {
-    action.disabled = true;
-    card.append(action);
-    card.append(
-      element(
-        "p",
-        "mt-2 text-center text-xs text-[var(--color-muted)]",
-        "Paiement disponible en phase 4",
-      ),
-    );
-    return card;
+    action.addEventListener("click", () => {
+      if (sessionStorage.getItem(ACCESS_TOKEN_KEY)) {
+        window.location.assign(purchaseUrl(nasId, offer));
+        return;
+      }
+      onChoose(offer);
+    });
   }
   card.append(action);
   return card;
@@ -159,13 +173,13 @@ function renderOffers(session: Session): void {
 
   const list = element("ul", "flex flex-col gap-3");
   for (const offer of context.plans) {
-    list.append(offerCard(offer, () => renderIdentification(session)));
+    list.append(offerCard(offer, session.nasId, (selected) => renderIdentification(session, selected)));
   }
   fragment.append(list);
   session.target.replaceChildren(fragment);
 }
 
-function renderIdentification(session: Session): void {
+function renderIdentification(session: Session, offer: PlanOffer): void {
   const form = element("form", "flex flex-col gap-4");
   form.append(element("h2", "text-lg font-bold", "Votre numéro de téléphone"));
 
@@ -225,7 +239,7 @@ function renderIdentification(session: Session): void {
     submit.textContent = "Envoi…";
     session.client
       .requestOtp(phone)
-      .then(() => renderCodeEntry({ ...session, phone }))
+      .then(() => renderCodeEntry({ ...session, phone }, offer))
       .catch((cause) => {
         submit.disabled = false;
         submit.textContent = "Recevoir un code";
@@ -240,7 +254,7 @@ function renderIdentification(session: Session): void {
   input.focus();
 }
 
-function renderCodeEntry(session: Session): void {
+function renderCodeEntry(session: Session, offer: PlanOffer): void {
   const form = element("form", "flex flex-col gap-4");
   form.append(element("h2", "text-lg font-bold", "Code reçu par SMS"));
   form.append(
@@ -276,7 +290,7 @@ function renderCodeEntry(session: Session): void {
 
   const back = element("button", "text-sm underline", "Modifier le numéro");
   back.type = "button";
-  back.addEventListener("click", () => renderIdentification(session));
+  back.addEventListener("click", () => renderIdentification(session, offer));
   form.append(back);
 
   form.addEventListener("submit", (event) => {
@@ -294,11 +308,16 @@ function renderCodeEntry(session: Session): void {
           terms.terms.map((document) => document.id),
         ),
       )
-      .then((tokens) => {
+      .then(async (tokens) => {
+        sessionStorage.setItem(ACCESS_TOKEN_KEY, tokens.access);
         session.client.setAccessToken(tokens.access);
-        return session.client.claimFreeAccess(session.nasId);
+        if (offer.type !== "free") {
+          window.location.assign(purchaseUrl(session.nasId, offer));
+          return;
+        }
+        const entitlement = await session.client.claimFreeAccess(session.nasId);
+        renderGranted(session, entitlement.ends_at);
       })
-      .then((entitlement) => renderGranted(session, entitlement.ends_at))
       .catch((cause) => {
         submit.disabled = false;
         submit.textContent = "Valider";
@@ -360,7 +379,7 @@ export async function mountPortal(target: HTMLElement, apiBaseUrl: string): Prom
     return;
   }
 
-  const client = createApiClient({ baseUrl: apiBaseUrl });
+  const client = createPortalClient(apiBaseUrl);
   try {
     const context = await client.portalContext(nasId);
     renderOffers({ target, client, nasId, context, phone: "" });

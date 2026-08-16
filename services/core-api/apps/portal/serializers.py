@@ -13,6 +13,7 @@ class PlanOfferSerializer(serializers.Serializer):
     name = serializers.CharField()
     description = serializers.CharField()
     type = serializers.CharField()
+    plan_version_id = serializers.UUIDField(source="current_version_id", read_only=True)
     price_xof = serializers.SerializerMethodField()
     currency = serializers.SerializerMethodField()
     connection_seconds = serializers.SerializerMethodField()

@@ -32,15 +32,32 @@ def test_seed_creates_one_hotspot_per_zone(seeded):
     assert Hotspot.objects.count() == Zone.objects.count()
 
 
-def test_seed_creates_the_four_offers_with_a_current_version(seeded):
+def test_seed_creates_the_five_offers_with_a_current_version(seeded):
     plans = Plan.objects.all()
-    assert {plan.code for plan in plans} == {"gratuit", "heure-1", "journee", "semaine"}
+    assert {plan.code for plan in plans} == {
+        "gratuit",
+        "pass-dakar-1h",
+        "heure-1",
+        "journee",
+        "semaine",
+    }
     assert all(plan.current_version is not None for plan in plans)
+
+
+def test_seed_creates_the_paid_demo_offer_on_its_zone(seeded):
+    plan = Plan.objects.get(code="pass-dakar-1h")
+    version = plan.current_version
+
+    assert plan.type == Plan.Type.PAID
+    assert set(plan.zones.values_list("code", flat=True)) == {"demo-independance"}
+    assert version.price_xof == 500
+    assert version.connection_seconds == 3600
+    assert version.radius_profile_ref == "dakar-1h"
 
 
 def test_free_offer_costs_nothing_and_paid_offers_are_priced_in_whole_xof(seeded):
     assert Plan.objects.get(code="gratuit").current_version.price_xof == 0
-    for code in ("heure-1", "journee", "semaine"):
+    for code in ("pass-dakar-1h", "heure-1", "journee", "semaine"):
         price = Plan.objects.get(code=code).current_version.price_xof
         assert isinstance(price, int)
         assert price > 0
@@ -53,4 +70,4 @@ def test_seed_can_run_twice_without_duplicating(seeded):
     assert Site.objects.count() == 3
     assert Zone.objects.count() == 3
     assert Hotspot.objects.count() == 3
-    assert Plan.objects.count() == 4
+    assert Plan.objects.count() == 5
