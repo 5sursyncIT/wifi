@@ -16,7 +16,7 @@ installées localement au 2026-08-16 : Node 25.9, Python 3.14, Docker 29.1) :
 
 | Domaine | Choix | Précision |
 |---|---|---|
-| Portail captif | **Astro 5** (sortie statique, TypeScript) | zéro runtime de framework — [ADR-0005](0005-budget-portail-captif.md) |
+| Portail captif | **Astro 7** (sortie statique, TypeScript) | zéro runtime de framework — [ADR-0005](0005-budget-portail-captif.md) |
 | Back-office | Next.js 16 (TypeScript, React 19) | App Router |
 | Backend métier | Django + DRF | Python ≥ 3.12 |
 | Async | Celery + Redis | broker et cache Redis |

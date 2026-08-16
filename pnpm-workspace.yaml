@@ -2,10 +2,12 @@ packages:
   - "apps/*"
   - "packages/*"
 
-# Astro pins vite ^6.4.1 while @tailwindcss/vite accepts ^5 to ^8 and would resolve 7,
-# producing two incompatible sets of Vite plugin types. One version for the whole tree.
+# Astro pins the vite it builds against and @tailwindcss/vite accepts a wide range, so
+# without a single pin the tree resolves two copies with incompatible plugin types.
+# Follow astro's own dependency when upgrading it: astro 7 builds on vite 8, and vitest
+# must accept the same major (vitest 3 stops at vite 7).
 overrides:
-  vite: "^6.4.1"
+  vite: "^8.0.13"
 # Native binaries required by the toolchain. Reviewed explicitly: pnpm blocks
 # post-install scripts by default and every addition must be justified here.
 allowBuilds:
