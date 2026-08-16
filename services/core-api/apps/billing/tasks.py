@@ -17,6 +17,16 @@ from apps.core.outbox import enqueue
 logger = logging.getLogger(__name__)
 
 
+def _expire_pending_order(stale_order: Order) -> bool:
+    with transaction.atomic():
+        order = Order.objects.select_for_update().get(pk=stale_order.pk)
+        try:
+            expire(order)
+        except InvalidTransition:
+            return False
+    return True
+
+
 @shared_task(name="billing.expire_pending_orders")
 def expire_pending_orders() -> int:
     """Close orders nobody paid within the configured window."""
@@ -26,11 +36,8 @@ def expire_pending_orders() -> int:
     )
     count = 0
     for order in due:
-        try:
-            expire(order)
-        except InvalidTransition:
-            continue
-        count += 1
+        if _expire_pending_order(order):
+            count += 1
     return count
 
 
@@ -60,9 +67,15 @@ def reconcile_pending_payments() -> int:
         # network call happens afterwards. Reconciliation must not be the one place
         # where a payment can be recorded without its activation being scheduled.
         with transaction.atomic():
-            mark_paid(order, fees_xof=status.fees_xof)
-            entitlement = entitlement_for_order(order, starts_at=timezone.now())
+            current_order = Order.objects.select_for_update().get(pk=order.pk)
+            try:
+                mark_paid(current_order, fees_xof=status.fees_xof)
+            except InvalidTransition:
+                continue
+            entitlement = entitlement_for_order(current_order, starts_at=timezone.now())
             enqueue(TOPIC, {"entitlement_id": str(entitlement.pk)})
-        logger.warning("Order %s settled by reconciliation, not by webhook.", order.order_number)
+        logger.warning(
+            "Order %s settled by reconciliation, not by webhook.", current_order.order_number
+        )
         settled += 1
     return settled
