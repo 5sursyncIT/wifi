@@ -11,6 +11,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.core.models import OutboxMessage
@@ -53,16 +54,25 @@ def _claim(limit: int) -> list[OutboxMessage]:
     """Take ownership of a batch in a short transaction, before any slow call.
 
     `skip_locked` lets several workers draw from the queue at once without blocking
-    each other and without two of them taking the same row.
+    each other and without two of them taking the same row. A `processing` row whose
+    `updated_at` predates the claim timeout is reclaimed too: a worker can die between
+    claiming a message and reporting its outcome, and such a claim is presumed dead.
     """
     now = timezone.now()
+    stale_before = now - timedelta(seconds=settings.OUTBOX_CLAIM_TIMEOUT_SECONDS)
     with transaction.atomic():
         claimed = list(
             OutboxMessage.objects.select_for_update(skip_locked=True)
-            .filter(status=OutboxMessage.Status.PENDING, available_at__lte=now)
+            .filter(
+                Q(status=OutboxMessage.Status.PENDING, available_at__lte=now)
+                | Q(status=OutboxMessage.Status.PROCESSING, updated_at__lte=stale_before)
+            )
             .order_by("available_at")[:limit]
         )
         for message in claimed:
+            # `attempts` was already incremented on the dead claim being reclaimed
+            # here; incrementing again is intentional so a message that keeps killing
+            # its worker still exhausts OUTBOX_MAX_ATTEMPTS instead of retrying forever.
             message.status = OutboxMessage.Status.PROCESSING
             message.attempts += 1
             message.save(update_fields=["status", "attempts", "updated_at"])

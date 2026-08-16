@@ -95,3 +95,36 @@ def test_a_message_scheduled_for_later_is_not_picked_up(db):
 
     assert outbox.drain() == 0
     assert CALLS == []
+
+
+def test_a_stale_processing_message_is_reclaimed(db, settings):
+    # A worker can die between claiming a message and reporting its outcome, leaving
+    # the row stuck in `processing`. Past the claim timeout it must be picked up again.
+    settings.OUTBOX_CLAIM_TIMEOUT_SECONDS = 300
+    outbox.enqueue("test.ok", {"id": "abc"})
+    stale = timezone.now() - timedelta(seconds=600)
+    OutboxMessage.objects.update(
+        status=OutboxMessage.Status.PROCESSING, attempts=1, updated_at=stale
+    )
+
+    assert outbox.drain() == 1
+
+    message = OutboxMessage.objects.get()
+    assert message.status == OutboxMessage.Status.DONE
+    assert message.attempts == 2
+    assert CALLS == [{"id": "abc"}]
+
+
+def test_a_recently_claimed_processing_message_is_not_reclaimed(db, settings):
+    # Otherwise two workers would run the same handler concurrently on a message
+    # another worker is still legitimately busy with.
+    settings.OUTBOX_CLAIM_TIMEOUT_SECONDS = 300
+    outbox.enqueue("test.ok", {"id": "abc"})
+    OutboxMessage.objects.update(status=OutboxMessage.Status.PROCESSING, attempts=1)
+
+    assert outbox.drain() == 0
+
+    message = OutboxMessage.objects.get()
+    assert message.status == OutboxMessage.Status.PROCESSING
+    assert message.attempts == 1
+    assert CALLS == []

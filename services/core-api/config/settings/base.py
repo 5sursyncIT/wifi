@@ -164,6 +164,10 @@ PAYMENT_PROVIDER = env.str("PAYMENT_PROVIDER", default="mock")
 OUTBOX_MAX_ATTEMPTS = env.int("OUTBOX_MAX_ATTEMPTS", default=10)
 OUTBOX_BACKOFF_BASE_SECONDS = env.int("OUTBOX_BACKOFF_BASE_SECONDS", default=5)
 
+# A worker can die between claiming a message and reporting its outcome. Past this
+# delay a claim is presumed dead and the message is picked up again.
+OUTBOX_CLAIM_TIMEOUT_SECONDS = env.int("OUTBOX_CLAIM_TIMEOUT_SECONDS", default=300)
+
 # --- Security ---------------------------------------------------------------
 
 # Hosts the captive portal may redirect a browser to. Compared by exact match
