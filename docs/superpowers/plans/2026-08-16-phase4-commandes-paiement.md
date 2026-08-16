@@ -85,7 +85,7 @@
 - Create: `services/core-api/apps/core/tests/test_outbox.py`
 - Modify: `services/core-api/apps/core/models.py`
 - Modify: `services/core-api/config/settings/base.py`
-- Create: `services/core-api/apps/core/migrations/0002_outboxmessage.py` (généré)
+- Create: `services/core-api/apps/core/migrations/0001_initial.py` (généré ; `apps.core` n'avait pas de migration)
 
 **Interfaces:**
 - Consumes: `apps.core.models.UUIDTimeStampedModel`
@@ -108,6 +108,10 @@ Dans `services/core-api/config/settings/base.py`, après le bloc `# --- Adapters
 # retrying forever in silence.
 OUTBOX_MAX_ATTEMPTS = env.int("OUTBOX_MAX_ATTEMPTS", default=10)
 OUTBOX_BACKOFF_BASE_SECONDS = env.int("OUTBOX_BACKOFF_BASE_SECONDS", default=5)
+
+# A worker can die between claiming a message and reporting its outcome. Past this
+# delay a claim is presumed dead and the message is picked up again.
+OUTBOX_CLAIM_TIMEOUT_SECONDS = env.int("OUTBOX_CLAIM_TIMEOUT_SECONDS", default=300)
 ```
 
 - [ ] **Step 2: Écrire le test qui échoue**
@@ -116,6 +120,8 @@ Créer `services/core-api/apps/core/tests/test_outbox.py` :
 
 ```python
 """Transactional outbox: a failing outside world delays a message, never loses it (§11.2)."""
+
+from datetime import timedelta
 
 import pytest
 from django.utils import timezone
@@ -206,10 +212,68 @@ def test_a_permanent_error_does_not_retry(db):
 
 def test_a_message_scheduled_for_later_is_not_picked_up(db):
     outbox.enqueue("test.ok", {"id": "abc"})
-    OutboxMessage.objects.update(available_at=timezone.now() + timezone.timedelta(minutes=5))
+    OutboxMessage.objects.update(available_at=timezone.now() + timedelta(minutes=5))
 
     assert outbox.drain() == 0
     assert CALLS == []
+
+
+def test_a_claim_left_by_a_dead_worker_is_reclaimed(db, settings):
+    # A worker can die between claiming a message and reporting its outcome. Without
+    # this, the row sits in `processing` forever: never retried, never failed, never
+    # seen — which is exactly the loss the outbox exists to prevent.
+    settings.OUTBOX_CLAIM_TIMEOUT_SECONDS = 300
+    outbox.enqueue("test.ok", {"id": "abc"})
+    OutboxMessage.objects.update(
+        status=OutboxMessage.Status.PROCESSING,
+        attempts=1,
+        # auto_now forbids save(); a queryset update is the only way to age a row.
+        updated_at=timezone.now() - timedelta(seconds=600),
+    )
+
+    assert outbox.drain() == 1
+    assert CALLS == [{"id": "abc"}]
+
+    message = OutboxMessage.objects.get()
+    assert message.status == OutboxMessage.Status.DONE
+    # Not reset: a dead attempt is still an attempt, so a message that keeps killing
+    # its worker still exhausts its retries instead of looping forever.
+    assert message.attempts == 2
+
+
+def test_a_claim_still_within_the_timeout_is_left_alone(db, settings):
+    settings.OUTBOX_CLAIM_TIMEOUT_SECONDS = 300
+    outbox.enqueue("test.ok", {"id": "abc"})
+    OutboxMessage.objects.update(
+        status=OutboxMessage.Status.PROCESSING,
+        attempts=1,
+        updated_at=timezone.now() - timedelta(seconds=10),
+    )
+
+    # Reclaiming a live claim would run the same handler in two workers at once.
+    assert outbox.drain() == 0
+    assert CALLS == []
+
+
+def test_a_stale_message_that_already_exhausted_its_attempts_is_not_retried(db, settings):
+    # _reschedule caps retries, but only when the handler raises. A handler that kills
+    # the worker never reaches it, so without a cap at claim time a message that always
+    # crashes its worker would be reclaimed forever, unbounded and unseen.
+    settings.OUTBOX_MAX_ATTEMPTS = 3
+    settings.OUTBOX_CLAIM_TIMEOUT_SECONDS = 300
+    outbox.enqueue("test.ok", {"id": "abc"})
+    OutboxMessage.objects.update(
+        status=OutboxMessage.Status.PROCESSING,
+        attempts=3,
+        updated_at=timezone.now() - timedelta(seconds=600),
+    )
+
+    assert outbox.drain() == 0
+    assert CALLS == []
+
+    message = OutboxMessage.objects.get()
+    assert message.status == OutboxMessage.Status.FAILED
+    assert message.last_error
 ```
 
 - [ ] **Step 3: Lancer le test et vérifier qu'il échoue**
@@ -275,6 +339,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.core.models import OutboxMessage
@@ -316,19 +381,43 @@ def _claim(limit: int) -> list[OutboxMessage]:
     """Take ownership of a batch in a short transaction, before any slow call.
 
     `skip_locked` lets several workers draw from the queue at once without blocking
-    each other and without two of them taking the same row.
+    each other and without two of them taking the same row. A `processing` row whose
+    `updated_at` predates the claim timeout is reclaimed too: a worker can die between
+    claiming a message and reporting its outcome, and such a claim is presumed dead.
+
+    A row whose `attempts` already reached `OUTBOX_MAX_ATTEMPTS` is routed to `failed`
+    here instead of being claimed again. `_reschedule` enforces the same cap, but only
+    runs when the handler raises a catchable exception; a handler that kills the
+    worker outright never reaches it, so a message that always crashes its worker
+    would otherwise be reclaimed and re-attempted forever. Checking the cap at claim
+    time closes that gap for every claimed row, reclaimed or not.
     """
     now = timezone.now()
+    stale_before = now - timedelta(seconds=settings.OUTBOX_CLAIM_TIMEOUT_SECONDS)
     with transaction.atomic():
-        claimed = list(
+        candidates = list(
             OutboxMessage.objects.select_for_update(skip_locked=True)
-            .filter(status=OutboxMessage.Status.PENDING, available_at__lte=now)
+            .filter(
+                Q(status=OutboxMessage.Status.PENDING, available_at__lte=now)
+                | Q(status=OutboxMessage.Status.PROCESSING, updated_at__lte=stale_before)
+            )
             .order_by("available_at")[:limit]
         )
-        for message in claimed:
+        claimed = []
+        for message in candidates:
+            if message.attempts >= settings.OUTBOX_MAX_ATTEMPTS:
+                message.status = OutboxMessage.Status.FAILED
+                message.last_error = "Attempts exhausted; the worker did not report an outcome."
+                message.save(update_fields=["status", "last_error", "updated_at"])
+                logger.error(
+                    "Outbox %s exhausted its retries without reporting an outcome.",
+                    message.topic,
+                )
+                continue
             message.status = OutboxMessage.Status.PROCESSING
             message.attempts += 1
             message.save(update_fields=["status", "attempts", "updated_at"])
+            claimed.append(message)
     return claimed
 
 
@@ -395,9 +484,11 @@ cd services/core-api
 uv run python manage.py makemigrations core
 uv run pytest apps/core/tests/test_outbox.py -v
 ```
-Attendu : 7 tests PASS.
+Attendu : 10 tests PASS.
 
-Si `test_enqueue_refuses_an_unregistered_topic` échoue sur le message, aligner la casse : le test cherche `unknown outbox topic` sans tenir compte de la casse via `pytest.raises(match=...)`, qui est sensible à la casse — corriger le test en `match="Unknown outbox topic"`.
+`pytest.raises(match=...)` est sensible à la casse : le test doit chercher `match="Unknown outbox topic"`.
+
+La migration s'appellera `0001_initial.py` et non `0002_outboxmessage.py` : `apps.core` n'a aucune migration antérieure.
 
 - [ ] **Step 8: Vérifier lint et types, puis committer**
 
