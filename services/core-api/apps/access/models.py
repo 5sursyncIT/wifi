@@ -67,6 +67,17 @@ class Entitlement(UUIDTimeStampedModel):
         PlanVersion, on_delete=models.PROTECT, related_name="entitlements"
     )
     zone = models.ForeignKey(Zone, on_delete=models.PROTECT, related_name="entitlements")
+
+    # One entitlement per order, enforced by the database: "activation du forfait une
+    # seule fois" (§8.5) must not depend on application logic getting concurrency right.
+    order = models.OneToOneField(
+        "billing.Order",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="entitlement",
+    )
+
     source = models.CharField(max_length=20, choices=Source.choices)
     status = models.CharField(
         max_length=25, choices=Status.choices, default=Status.PENDING_ACTIVATION

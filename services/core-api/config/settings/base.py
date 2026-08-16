@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "apps.citizens",
     "apps.messaging",
     "apps.access",
+    "apps.billing",
 ]
 
 MIDDLEWARE = [

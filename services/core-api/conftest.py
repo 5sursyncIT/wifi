@@ -1,8 +1,10 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
+from django.utils import timezone
 
 from apps.catalog.models import Plan, PlanVersion
+from apps.citizens.models import Citizen
 from apps.network.models import Hotspot, Organization, Site, Zone
 
 
@@ -88,3 +90,25 @@ def current_terms(db):
             published_at=datetime(2026, 1, 1, tzinfo=UTC),
         ),
     ]
+
+
+@pytest.fixture
+def citizen(db):
+    return Citizen.objects.create(
+        phone_e164="+221771234567", status=Citizen.Status.ACTIVE, verified_at=timezone.now()
+    )
+
+
+@pytest.fixture
+def order(citizen, zone, plan_version):
+    from apps.billing.models import Order
+
+    return Order.objects.create(
+        citizen=citizen,
+        plan_version=plan_version,
+        zone=zone,
+        amount_xof=plan_version.price_xof,
+        currency="XOF",
+        idempotency_key="key-1",
+        expires_at=timezone.now() + timedelta(minutes=30),
+    )
