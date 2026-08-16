@@ -140,6 +140,7 @@ import Base from "../layouts/Base.astro";
     try {
       const order = await client.createOrder(nasId, planVersionId, idempotencyKey);
       const deadline = new Date(order.expires_at).getTime();
+      document.getElementById("attente")!.dataset.orderNumber = order.order_number;
 
       if (order.mode === "redirect") {
         const link = document.getElementById("lien-paiement") as HTMLAnchorElement;

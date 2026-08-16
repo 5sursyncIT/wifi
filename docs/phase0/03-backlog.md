@@ -55,14 +55,14 @@ appliquée. L'export et la suppression de compte du §8.1 restent à livrer.
 
 ## Phase 4 — Commandes, paiement mock et abonnements
 
-| ID | Item |
-|---|---|
-| DW-P4-01 | Order + états + TTL `pending` + Idempotency-Key (§8.5) |
-| DW-P4-02 | Interface PaymentProvider (push + redirection, ADR-0004) + MockPaymentProvider |
-| DW-P4-03 | Webhooks signés : validation, idempotence, historique, post-expiration (§8.5) |
-| DW-P4-04 | Entitlement payant + outbox transactionnelle + activation idempotente (§11.2) |
-| DW-P4-05 | UI paiement : attente push, sondage statut, repli redirection, reçu |
-| DW-P4-06 | E2E : achat complet mock (critères 4-6 du §17) |
+| ID | Item | État |
+|---|---|---|
+| DW-P4-01 | Order + états + TTL `pending` + Idempotency-Key (§8.5) | livré |
+| DW-P4-02 | Interface PaymentProvider (push + redirection, ADR-0004) + MockPaymentProvider | livré |
+| DW-P4-03 | Webhooks signés : validation, idempotence, historique, post-expiration (§8.5) | livré |
+| DW-P4-04 | Entitlement payant + outbox transactionnelle + activation idempotente (§11.2) | livré |
+| DW-P4-05 | UI paiement : attente push, sondage statut, repli redirection, reçu | livré |
+| DW-P4-06 | E2E : achat complet mock (critères 4-6 du §17) | livré |
 
 ## Phase 5 — OpenWISP staging
 

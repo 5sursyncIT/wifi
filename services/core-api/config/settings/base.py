@@ -7,6 +7,7 @@ No secret may ever have a usable default: see `.env.example` at the repository r
 from pathlib import Path
 
 import environ
+from corsheaders.defaults import default_headers
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -218,6 +219,7 @@ CORS_ALLOWED_ORIGINS = env.list(
     "CORS_ALLOWED_ORIGINS",
     default=["http://localhost:3000", "http://localhost:3001"],
 )
+CORS_ALLOW_HEADERS = (*default_headers, "idempotency-key")
 CORS_ALLOW_CREDENTIALS = True
 
 SESSION_COOKIE_HTTPONLY = True

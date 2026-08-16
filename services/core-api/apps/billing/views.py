@@ -1,7 +1,9 @@
 """Order and payment endpoints (cahier des charges §10)."""
 
+from django.conf import settings
+from django.http import Http404
 from drf_spectacular.utils import extend_schema
-from rest_framework import status
+from rest_framework import serializers, status
 from rest_framework.decorators import (
     api_view,
     authentication_classes,
@@ -13,6 +15,7 @@ from rest_framework.response import Response
 
 from apps.billing.models import Order
 from apps.billing.orders import OrderRefused, place_order
+from apps.billing.providers.mock import MockPaymentProvider
 from apps.billing.serializers import OrderRequestSerializer, OrderSerializer, ReceiptSerializer
 from apps.billing.webhooks import handle
 from apps.catalog.models import PlanVersion
@@ -20,6 +23,34 @@ from apps.citizens.authentication import CitizenTokenAuthentication, citizen_of
 from apps.portal.serializers import ErrorSerializer
 from apps.portal.services import UnknownHotspot, resolve_portal_context
 from apps.portal.views import _error
+
+
+class EmitWebhookSerializer(serializers.Serializer):
+    order_number = serializers.CharField()
+    status = serializers.ChoiceField(choices=["succeeded", "refused"], default="succeeded")
+
+
+@extend_schema(exclude=True)
+@api_view(["POST"])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def emit_demo_webhook(request: Request) -> Response:
+    """Make the mock provider send its signed webhook in development."""
+    if settings.ENVIRONMENT not in ("local", "test") or settings.PAYMENT_PROVIDER != "mock":
+        raise Http404
+
+    payload = EmitWebhookSerializer(data=request.data)
+    payload.is_valid(raise_exception=True)
+
+    order = Order.objects.filter(order_number=payload.validated_data["order_number"]).first()
+    if order is None:
+        raise Http404
+
+    body, headers = MockPaymentProvider.build_webhook(
+        order, status=payload.validated_data["status"]
+    )
+    result = handle("mock", headers, body)
+    return Response({"outcome": result.outcome}, status=result.http_status)
 
 
 @extend_schema(

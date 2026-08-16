@@ -5,10 +5,10 @@ back-office municipal, et intégration OpenWISP pour le réseau et le RADIUS.
 
 Le cahier des charges fait foi : [`CAHIER_DES_CHARGES_DAKAR_WIFI.md`](CAHIER_DES_CHARGES_DAKAR_WIFI.md).
 
-> **État : Phase 3 livrée.** Un citoyen s'inscrit par OTP, accepte les conditions
-> versionnées et obtient l'accès gratuit de sa zone, en trois écrans. Le paiement arrive
-> en phase 4 — voir [le backlog](docs/phase0/03-backlog.md). Les écrans interrogent
-> l'API réelle, jamais des données figées.
+> **État : Phase 4 livrée.** Un citoyen s'inscrit par OTP, accepte les conditions
+> versionnées, puis obtient l'accès gratuit de sa zone ou achète une offre payante.
+> Le paiement mock passe par un webhook signé, active l'accès de manière garantie et
+> présente un reçu. Les écrans interrogent l'API réelle, jamais des données figées.
 
 Pour voir le portail avec les données de démonstration :
 `make dev`, puis <http://localhost:3000/?nas_id=demo-nas-001>
@@ -98,6 +98,10 @@ de performance du portail.
 Aucun secret réel ne doit être committé. `.env` est ignoré par git ; `.env.example`
 ne contient que des valeurs fictives. Les secrets de staging et de production
 proviennent d'un coffre externe et ne sont jamais partagés entre environnements.
+
+`JWT_SIGNING_KEY` signe les jetons citoyens et `PAYMENT_WEBHOOK_SECRET` authentifie les
+notifications du prestataire de paiement. Ils doivent être distincts, aléatoires
+(au moins 32 octets) et fournis par le coffre de chaque environnement.
 
 ## Deux stacks front-end, et pourquoi
 
