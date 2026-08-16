@@ -157,6 +157,13 @@ NETWORK_PROVIDER = env.str("NETWORK_PROVIDER", default="mock")
 SMS_PROVIDER = env.str("SMS_PROVIDER", default="mock")
 PAYMENT_PROVIDER = env.str("PAYMENT_PROVIDER", default="mock")
 
+# --- Outbox (cahier des charges §11.2) --------------------------------------
+
+# A message that keeps failing must end up in front of an operator rather than
+# retrying forever in silence.
+OUTBOX_MAX_ATTEMPTS = env.int("OUTBOX_MAX_ATTEMPTS", default=10)
+OUTBOX_BACKOFF_BASE_SECONDS = env.int("OUTBOX_BACKOFF_BASE_SECONDS", default=5)
+
 # --- Security ---------------------------------------------------------------
 
 # Hosts the captive portal may redirect a browser to. Compared by exact match
