@@ -20,6 +20,7 @@ from apps.billing.providers import get_payment_provider, is_known_provider
 from apps.core.outbox import enqueue
 
 logger = logging.getLogger(__name__)
+PROCESSED_EVENT_CONSTRAINT = "one_processed_delivery_per_event"
 
 
 @dataclass(frozen=True)
@@ -48,6 +49,12 @@ def _record(
         body_sha256=hashlib.sha256(body).hexdigest(),
         processed_at=(timezone.now() if outcome == WebhookEvent.Outcome.PROCESSED else None),
     )
+
+
+def _is_processed_event_duplicate(error: IntegrityError) -> bool:
+    cause = error.__cause__
+    diagnostic = getattr(cause, "diag", None)
+    return getattr(diagnostic, "constraint_name", None) == PROCESSED_EVENT_CONSTRAINT
 
 
 def handle(provider_name: str, headers: Mapping[str, str], body: bytes) -> WebhookResult:
@@ -106,18 +113,33 @@ def handle(provider_name: str, headers: Mapping[str, str], body: bytes) -> Webho
 
     if event.status != "succeeded":
         try:
-            mark_failed(order)
-        except InvalidTransition:
-            pass
-        _record(
-            provider_name,
-            event.external_event_id,
-            body,
-            outcome=WebhookEvent.Outcome.PROCESSED,
-            order=order,
-            signature_valid=True,
-            payload=minimised,
-        )
+            with transaction.atomic():
+                try:
+                    mark_failed(order)
+                except InvalidTransition:
+                    pass
+                _record(
+                    provider_name,
+                    event.external_event_id,
+                    body,
+                    outcome=WebhookEvent.Outcome.PROCESSED,
+                    order=order,
+                    signature_valid=True,
+                    payload=minimised,
+                )
+        except IntegrityError as error:
+            if not _is_processed_event_duplicate(error):
+                raise
+            _record(
+                provider_name,
+                event.external_event_id,
+                body,
+                outcome=WebhookEvent.Outcome.DUPLICATE,
+                order=order,
+                signature_valid=True,
+                payload=minimised,
+            )
+            return WebhookResult(WebhookEvent.Outcome.DUPLICATE, 200)
         return WebhookResult(WebhookEvent.Outcome.PROCESSED, 200)
 
     try:
@@ -136,7 +158,9 @@ def handle(provider_name: str, headers: Mapping[str, str], body: bytes) -> Webho
             mark_paid(order, fees_xof=event.fees_xof)
             entitlement = entitlement_for_order(order, starts_at=timezone.now())
             enqueue(TOPIC, {"entitlement_id": str(entitlement.pk)})
-    except IntegrityError:
+    except IntegrityError as error:
+        if not _is_processed_event_duplicate(error):
+            raise
         # The partial unique index refused a second processed delivery: this is a
         # duplicate. Recorded for the history, not replayed.
         _record(

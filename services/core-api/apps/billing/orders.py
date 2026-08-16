@@ -174,7 +174,7 @@ def mark_paid(order: Order, *, fees_xof: int = 0) -> Order:
             order.order_number,
         )
     _move(order, Order.Status.PAID, ["paid_at", "reactivated_after_expiry"])
-    order.payments.filter(status=Payment.Status.INITIATED).update(
+    order.payments.filter(status__in=(Payment.Status.INITIATED, Payment.Status.EXPIRED)).update(
         status=Payment.Status.SUCCEEDED, fees_xof=fees_xof
     )
     return order

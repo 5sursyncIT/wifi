@@ -1,11 +1,12 @@
 """Webhook reception: signature, idempotence, history and late confirmations (§8.5, §16.1)."""
 
 import pytest
+from django.db import IntegrityError
 from django.utils import timezone
 
 from apps.access.models import Entitlement
 from apps.access.providers.mock import MockNetworkProvider
-from apps.billing.models import Order, WebhookEvent
+from apps.billing.models import Order, Payment, WebhookEvent
 from apps.billing.orders import expire, place_order
 from apps.billing.providers.mock import MockPaymentProvider
 from apps.core.models import OutboxMessage
@@ -99,6 +100,24 @@ def test_a_duplicate_webhook_never_activates_twice(client, placed):
     assert outcomes == {WebhookEvent.Outcome.PROCESSED, WebhookEvent.Outcome.DUPLICATE}
 
 
+def test_an_unrelated_integrity_error_is_not_acknowledged_as_a_duplicate(
+    client, placed, monkeypatch
+):
+    body, headers = MockPaymentProvider.build_webhook(placed)
+
+    def fail_enqueue(*args, **kwargs):
+        raise IntegrityError("unrelated outbox integrity failure")
+
+    monkeypatch.setattr("apps.billing.webhooks.enqueue", fail_enqueue)
+
+    with pytest.raises(IntegrityError, match="unrelated outbox integrity failure"):
+        post(client, body, headers)
+
+    placed.refresh_from_db()
+    assert placed.status == Order.Status.PENDING
+    assert not WebhookEvent.objects.exists()
+
+
 def test_a_divergent_amount_is_refused(client, placed):
     body, headers = MockPaymentProvider.build_webhook(placed, amount_xof=1)
 
@@ -143,6 +162,33 @@ def test_a_refusal_fails_the_order(client, placed):
     assert not Entitlement.objects.exists()
 
 
+def test_a_duplicate_refusal_is_recorded_without_failing(client, placed):
+    body, headers = MockPaymentProvider.build_webhook(placed, status="refused")
+    post(client, body, headers)
+
+    response = post(client, body, headers)
+
+    assert response.status_code == 200
+    outcomes = set(WebhookEvent.objects.values_list("outcome", flat=True))
+    assert outcomes == {WebhookEvent.Outcome.PROCESSED, WebhookEvent.Outcome.DUPLICATE}
+
+
+def test_a_refusal_and_its_history_commit_together(client, placed, monkeypatch):
+    body, headers = MockPaymentProvider.build_webhook(placed, status="refused")
+
+    def fail_record(*args, **kwargs):
+        raise IntegrityError("history write failed")
+
+    monkeypatch.setattr("apps.billing.webhooks._record", fail_record)
+
+    with pytest.raises(IntegrityError, match="history write failed"):
+        post(client, body, headers)
+
+    placed.refresh_from_db()
+    assert placed.status == Order.Status.PENDING
+    assert placed.payments.get().status == Payment.Status.INITIATED
+
+
 def test_a_confirmation_after_expiry_reactivates_the_order(client, placed):
     # §8.5 and §16.1: the citizen paid, so the right is granted and the discrepancy
     # is flagged rather than the payment being dropped.
@@ -156,6 +202,7 @@ def test_a_confirmation_after_expiry_reactivates_the_order(client, placed):
     assert placed.status == Order.Status.PAID
     assert placed.reactivated_after_expiry is True
     assert placed.entitlement is not None
+    assert placed.payments.get().status == Payment.Status.SUCCEEDED
 
 
 def test_a_payment_confirmed_while_the_network_is_down_recovers(client, placed):

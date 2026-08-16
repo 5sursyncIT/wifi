@@ -141,6 +141,7 @@ def test_an_expired_order_can_still_be_paid_and_is_flagged(citizen, zone, plan_v
     order.refresh_from_db()
     assert order.status == Order.Status.PAID
     assert order.reactivated_after_expiry is True
+    assert order.payments.get().status == Payment.Status.SUCCEEDED
 
 
 def test_a_cancelled_order_cannot_be_paid(citizen, zone, plan_version):
