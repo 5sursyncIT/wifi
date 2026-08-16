@@ -128,3 +128,24 @@ def test_a_recently_claimed_processing_message_is_not_reclaimed(db, settings):
     assert message.status == OutboxMessage.Status.PROCESSING
     assert message.attempts == 1
     assert CALLS == []
+
+
+def test_a_stale_message_that_already_exhausted_its_attempts_is_not_retried(db, settings):
+    # A handler that kills the worker outright never raises, so `_reschedule`'s own
+    # cap is never reached; the cap must also be enforced when a stale claim is
+    # picked back up, or a crash-only failure mode would retry forever.
+    settings.OUTBOX_CLAIM_TIMEOUT_SECONDS = 300
+    settings.OUTBOX_MAX_ATTEMPTS = 2
+    outbox.enqueue("test.ok", {"id": "abc"})
+    stale = timezone.now() - timedelta(seconds=600)
+    OutboxMessage.objects.update(
+        status=OutboxMessage.Status.PROCESSING, attempts=2, updated_at=stale
+    )
+
+    assert outbox.drain() == 0
+    assert CALLS == []
+
+    message = OutboxMessage.objects.get()
+    assert message.status == OutboxMessage.Status.FAILED
+    assert message.attempts == 2
+    assert message.last_error

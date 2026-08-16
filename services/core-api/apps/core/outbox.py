@@ -57,11 +57,18 @@ def _claim(limit: int) -> list[OutboxMessage]:
     each other and without two of them taking the same row. A `processing` row whose
     `updated_at` predates the claim timeout is reclaimed too: a worker can die between
     claiming a message and reporting its outcome, and such a claim is presumed dead.
+
+    A row whose `attempts` already reached `OUTBOX_MAX_ATTEMPTS` is routed to `failed`
+    here instead of being claimed again. `_reschedule` enforces the same cap, but only
+    runs when the handler raises a catchable exception; a handler that kills the
+    worker outright never reaches it, so a message that always crashes its worker
+    would otherwise be reclaimed and re-attempted forever. Checking the cap at claim
+    time closes that gap for every claimed row, reclaimed or not.
     """
     now = timezone.now()
     stale_before = now - timedelta(seconds=settings.OUTBOX_CLAIM_TIMEOUT_SECONDS)
     with transaction.atomic():
-        claimed = list(
+        candidates = list(
             OutboxMessage.objects.select_for_update(skip_locked=True)
             .filter(
                 Q(status=OutboxMessage.Status.PENDING, available_at__lte=now)
@@ -69,13 +76,21 @@ def _claim(limit: int) -> list[OutboxMessage]:
             )
             .order_by("available_at")[:limit]
         )
-        for message in claimed:
-            # `attempts` was already incremented on the dead claim being reclaimed
-            # here; incrementing again is intentional so a message that keeps killing
-            # its worker still exhausts OUTBOX_MAX_ATTEMPTS instead of retrying forever.
+        claimed = []
+        for message in candidates:
+            if message.attempts >= settings.OUTBOX_MAX_ATTEMPTS:
+                message.status = OutboxMessage.Status.FAILED
+                message.last_error = "Attempts exhausted; the worker did not report an outcome."
+                message.save(update_fields=["status", "last_error", "updated_at"])
+                logger.error(
+                    "Outbox %s exhausted its retries without reporting an outcome.",
+                    message.topic,
+                )
+                continue
             message.status = OutboxMessage.Status.PROCESSING
             message.attempts += 1
             message.save(update_fields=["status", "attempts", "updated_at"])
+            claimed.append(message)
     return claimed
 
 
