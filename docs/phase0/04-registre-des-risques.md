@@ -5,7 +5,9 @@ Reprend le §23 du cahier des charges, avec suivi opérationnel.
 
 | ID | Risque | Prob. | Impact | Mesure de réduction | Suivi |
 |---|---|---|---|---|---|
-| R01 | Hypothèses OpenWISP invalidées (quotas, CoA, accounting) | M | **É** | Spike Phase 0 sur API réelles avant l'adaptateur | Ouvert — spike planifié |
+| R01 | Hypothèses OpenWISP invalidées (quotas, CoA, accounting) | F | É | [Spike exécuté](06-spike-openwisp.md) le 2026-08-16 : quotas, consommation et accounting dédupliqué vérifiés ; CoA implémenté | Traité — écarts reportés en R19 |
+| R19 | Pas d'API REST pour affecter un groupe RADIUS ni forcer une déconnexion | **É** | **É** | Bloque l'activation de forfait après paiement (§4.3, §8.7) et la déconnexion forcée (§8.8). Options en [ADR-0006](../adr/0006-integration-openwisp.md) ; décision requise avant la Phase 5 | **Ouvert — décision attendue** |
+| R20 | Écarts de quotas OpenWISP vs cahier des charges | M | M | Trafic cumulé au lieu de montant/descendant séparés (§8.3), pas de compteur hebdomadaire (§8.4), débit et sessions simultanées dépendants du matériel | Ouvert — arbitrage fonctionnel avec la Ville |
 | R02 | Matériel non compatible OpenWrt | M | É | Validation modèle par modèle en laboratoire avant achat | Ouvert — dépend question §22.2 |
 | R03 | Paiement confirmé mais accès non activé | M | É | Outbox, retries, réconciliation, interface de reprise | Couvert par conception (P4) |
 | R04 | Webhooks dupliqués ou hors ordre | É | M | Idempotence, contraintes d'unicité, historique complet | Couvert par conception (P4) |

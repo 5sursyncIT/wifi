@@ -39,7 +39,7 @@ Le détail fin (sous-tâches) sera tenu dans l'outil de suivi une fois choisi.
 | DW-P3-03 | Endpoints OTP request/verify/refresh/logout + rate limiting distribué (§13.1) |
 | DW-P3-04 | TermsVersion/Consent versionnés (§8.1) |
 | DW-P3-05 | Entitlement gratuit + règles de quota par zone (§8.4) |
-| DW-P3-06 | `MockNetworkProvider` avec les 7 scénarios du §11.3 |
+| DW-P3-06 | `MockNetworkProvider` avec les 7 scénarios du §11.3, interface incluant `assign_plan()` et `disconnect()` ([ADR-0006](../adr/0006-integration-openwisp.md)) |
 | DW-P3-07 | E2E Playwright : parcours gratuit complet (critères 1-3 du §17) |
 
 ## Phase 4 — Commandes, paiement mock et abonnements
@@ -57,9 +57,10 @@ Le détail fin (sous-tâches) sera tenu dans l'outil de suivi une fois choisi.
 
 | ID | Item |
 |---|---|
-| DW-P5-01 | Instance OpenWISP staging documentée (Ansible) |
+| DW-P5-00 | **Prérequis** : trancher l'[ADR-0006](../adr/0006-integration-openwisp.md) — affectation de groupe RADIUS et déconnexion à la demande absentes de l'API REST |
+| DW-P5-01 | Instance OpenWISP staging documentée (Ansible) ; configurer `freeradius_allowed_hosts` et `coa_enabled` |
 | DW-P5-02 | OpenWispClient (adaptateur §11) + gestion erreurs/retries/circuit breaker |
-| DW-P5-03 | Sync utilisateurs/profils RADIUS + réconciliation nocturne |
+| DW-P5-03 | Sync utilisateurs/profils RADIUS + réconciliation nocturne ; groupes RADIUS pré-provisionnés référencés par `PlanVersion.radius_profile_ref` |
 | DW-P5-04 | Import accounting sans double comptage (§8.8) |
 | DW-P5-05 | CoA si supporté + test hotspot de laboratoire |
 

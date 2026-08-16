@@ -115,6 +115,9 @@ node scripts/check-bundle-budget.mjs apps/captive-portal 150
 
 ## Points ouverts
 
-- [Spike OpenWISP](docs/phase0/06-spike-openwisp.md) — sept hypothèses à valider sur les
-  API réelles avant d'écrire l'adaptateur.
+- [ADR-0006](docs/adr/0006-integration-openwisp.md) — l'API REST d'OpenWISP ne permet ni
+  d'affecter un groupe RADIUS à un usager, ni de forcer une déconnexion. L'activation de
+  forfait après paiement en dépend : **décision requise avant la phase 5**. Les phases 2
+  à 4 ne sont pas bloquées (elles s'appuient sur `MockNetworkProvider`).
+  Mesures et méthode : [spike OpenWISP](docs/phase0/06-spike-openwisp.md).
 - [Questions bloquantes pour la production](CAHIER_DES_CHARGES_DAKAR_WIFI.md#22-questions-à-valider-avant-la-production) — 19 questions (§22).
