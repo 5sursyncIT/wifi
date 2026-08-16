@@ -1,0 +1,67 @@
+# Local development only. Never used for production (cahier des charges §15.2).
+name: dakar-wifi
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dakar}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dakar}
+      POSTGRES_DB: ${POSTGRES_DB:-dakar_wifi}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dakar} -d ${POSTGRES_DB:-dakar_wifi}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ../../services/core-api
+    env_file:
+      - ../../.env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-dakar}:${POSTGRES_PASSWORD:-dakar}@db:5432/${POSTGRES_DB:-dakar_wifi}
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - ../../services/core-api:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ../../services/core-api
+    command: celery -A config worker -l info
+    env_file:
+      - ../../.env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-dakar}:${POSTGRES_PASSWORD:-dakar}@db:5432/${POSTGRES_DB:-dakar_wifi}
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ../../services/core-api:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

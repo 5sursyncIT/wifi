@@ -1,0 +1,66 @@
+openapi: 3.1.0
+info:
+  title: Dakar WiFi — API métier
+  version: 0.1.0
+  description: API de la plateforme Wi-Fi public de la Ville de Dakar.
+paths:
+  /api/v1/health:
+    get:
+      operationId: health_retrieve
+      description: Liveness and readiness probe.
+      summary: État de santé du service
+      tags:
+      - health
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+          description: ''
+components:
+  schemas:
+    Health:
+      type: object
+      properties:
+        status:
+          type: string
+          description: '''ok'' or ''unavailable'''
+        environment:
+          type: string
+          description: local, test, staging or production
+        version:
+          type: string
+        checks:
+          $ref: '#/components/schemas/HealthChecks'
+      required:
+      - checks
+      - environment
+      - status
+      - version
+    HealthChecks:
+      type: object
+      properties:
+        database:
+          type: string
+          description: '''ok'' or ''error'''
+        cache:
+          type: string
+          description: '''ok'' or ''error'''
+      required:
+      - cache
+      - database
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid

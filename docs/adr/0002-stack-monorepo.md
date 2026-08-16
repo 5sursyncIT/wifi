@@ -16,7 +16,7 @@ installées localement au 2026-08-16 : Node 25.9, Python 3.14, Docker 29.1) :
 
 | Domaine | Choix | Précision |
 |---|---|---|
-| Portail + back-office | Next.js (TypeScript, React) | App Router, rendu mobile-first |
+| Portail + back-office | Next.js 16 (TypeScript, React 19) | App Router, rendu mobile-first |
 | Backend métier | Django + DRF | Python ≥ 3.12 |
 | Async | Celery + Redis | broker et cache Redis |
 | Base | PostgreSQL 16+ | conteneur en local |
@@ -31,9 +31,17 @@ installées localement au 2026-08-16 : Node 25.9, Python 3.14, Docker 29.1) :
 
 La structure de répertoires suit le §5.1 du cahier des charges à l'identique.
 
+Next.js **16** (et non 15) a été retenu en Phase 1 : sur la 15.5, `pnpm audit` remontait
+5 vulnérabilités transitives (3 hautes : `sharp`, `postcss`), toutes absentes en 16.3.
+Démarrer un projet neuf sur la majeure précédente aurait créé une dette immédiate.
+Conséquence pratique : `eslint-config-next` 16 fournit des configurations plates natives,
+`@eslint/eslintrc`/`FlatCompat` n'est plus nécessaire.
+
 ## Conséquences
 
 - `pnpm` et `uv` sont des prérequis développeur, documentés dans le README.
+- Le poids du runtime Next.js pose un problème pour le portail captif :
+  voir [ADR-0005](0005-budget-portail-captif.md), décision en attente.
 - Le client TypeScript est généré depuis le schéma OpenAPI : le schéma est la source
   de vérité du contrat, validé en CI.
 - Docker Compose est réservé au développement ; le déploiement production d'OpenWISP

@@ -1,0 +1,19 @@
+{
+  "name": "dakar-wifi",
+  "private": true,
+  "description": "Plateforme Wi-Fi public de la Ville de Dakar",
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "api-client:generate": "pnpm --filter @dakar-wifi/api-client generate"
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

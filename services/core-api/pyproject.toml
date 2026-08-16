@@ -1,0 +1,60 @@
+[project]
+name = "dakar-wifi-core-api"
+version = "0.1.0"
+description = "Dakar WiFi business API (Django + DRF)"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "django>=5.2,<6.0",
+    "djangorestframework>=3.16",
+    "drf-spectacular>=0.28",
+    "django-environ>=0.12",
+    "django-cors-headers>=4.7",
+    "psycopg[binary]>=3.2",
+    "celery>=5.5",
+    "redis>=6.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-django>=4.9",
+    "pytest-cov>=6.0",
+    "ruff>=0.9",
+    "mypy>=1.14",
+    "django-stubs[compatible-mypy]>=5.1",
+    "djangorestframework-stubs>=3.15",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+python_files = ["test_*.py"]
+testpaths = ["apps"]
+addopts = "-q --strict-markers"
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+exclude = ["**/migrations/*"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "DJ", "S", "C4", "RUF"]
+ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/test_*.py" = ["S105", "S106"]
+"config/settings/*.py" = ["F403", "F405"]
+
+[tool.mypy]
+python_version = "3.13"
+plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
+strict_optional = true
+warn_unused_ignores = true
+exclude = ["migrations/"]
+
+# celery and django-environ ship no type information.
+[[tool.mypy.overrides]]
+module = ["celery.*", "environ.*"]
+ignore_missing_imports = true
+
+[tool.django-stubs]
+django_settings_module = "config.settings.test"

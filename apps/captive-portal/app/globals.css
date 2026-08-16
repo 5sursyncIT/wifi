@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+/* Placeholder identity. Replaced by the City's official assets without code change
+   (cahier des charges §2.2): only these tokens need to move. */
+@theme {
+  --color-brand: #0b6b5b;
+  --color-brand-dark: #084c41;
+  --color-surface: #ffffff;
+  --color-ink: #14201d;
+  --color-muted: #4a5c58;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background: var(--color-surface);
+  color: var(--color-ink);
+  /* System fonts only: no webfont download on a slow network (§12.1). */
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+}

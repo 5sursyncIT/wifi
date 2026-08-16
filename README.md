@@ -1,0 +1,103 @@
+# Dakar WiFi
+
+Plateforme de Wi-Fi public de la Ville de Dakar : portail captif, API métier,
+back-office municipal, et intégration OpenWISP pour le réseau et le RADIUS.
+
+Le cahier des charges fait foi : [`CAHIER_DES_CHARGES_DAKAR_WIFI.md`](CAHIER_DES_CHARGES_DAKAR_WIFI.md).
+
+> **État : Phase 1 — fondations.** Le socle technique est en place (API, portails,
+> contrat OpenAPI, CI). Les parcours métier arrivent à partir de la phase 2 :
+> voir [le backlog](docs/phase0/03-backlog.md). Les écrans actuels sont des squelettes
+> signalés comme tels ; ils interrogent l'API réelle, jamais des données figées.
+
+## Prérequis
+
+| Outil | Version | Installation |
+|---|---|---|
+| Node.js | ≥ 22 | https://nodejs.org |
+| pnpm | ≥ 10 | `npm install -g pnpm` |
+| uv | ≥ 0.12 | https://docs.astral.sh/uv/ |
+| Docker + Compose | ≥ 24 | https://docs.docker.com |
+| GNU Make | — | fourni par la plupart des distributions |
+
+Python 3.13 est téléchargé automatiquement par `uv` : aucune installation manuelle.
+
+## Démarrage
+
+```bash
+make setup   # installe les dépendances et crée .env depuis .env.example
+make dev     # démarre base, cache, API, worker, puis les deux front-ends
+```
+
+| Service | Adresse |
+|---|---|
+| Portail captif | http://localhost:3000 |
+| Back-office | http://localhost:3001 |
+| API métier | http://localhost:8000 |
+| Documentation OpenAPI | http://localhost:8000/api/v1/docs/ |
+| Administration Django | http://localhost:8000/admin/ |
+
+Pour créer des comptes de démonstration (un par rôle du §7, mots de passe générés et
+affichés une seule fois) :
+
+```bash
+make seed
+```
+
+Cette commande **refuse de s'exécuter** lorsque `ENVIRONMENT=production`.
+
+`make help` liste toutes les cibles disponibles.
+
+## Structure
+
+```text
+apps/captive-portal/    Portail captif (Next.js, mobile-first)
+apps/admin-dashboard/   Back-office municipal (Next.js)
+services/core-api/      API métier (Django + DRF, Celery)
+packages/api-client/    Client TypeScript généré depuis OpenAPI
+packages/ui/            Composants partagés entre les deux portails
+packages/config/        Configurations TypeScript partagées
+infra/compose/          Développement local uniquement (jamais la production)
+docs/adr/               Décisions d'architecture
+docs/phase0/            Diagnostic, backlog, risques, traçabilité
+scripts/                Outillage (budget de performance…)
+```
+
+## Contrat d'API
+
+Le schéma OpenAPI est la source de vérité du client TypeScript. Après toute
+modification d'un endpoint :
+
+```bash
+make openapi   # régénère docs/api/openapi.yaml puis packages/api-client/src/schema.d.ts
+```
+
+La CI échoue si le dépôt n'est pas à jour vis-à-vis du code.
+Ne jamais modifier `packages/api-client/src/schema.d.ts` à la main.
+
+## Vérifications
+
+```bash
+make check   # lint + types + tests, comme la CI
+make test    # tests seuls (pytest et vitest)
+make lint
+make typecheck
+```
+
+La CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) ajoute la détection de
+secrets, l'analyse des dépendances, la construction des images et le contrôle du budget
+de performance du portail.
+
+## Secrets
+
+Aucun secret réel ne doit être committé. `.env` est ignoré par git ; `.env.example`
+ne contient que des valeurs fictives. Les secrets de staging et de production
+proviennent d'un coffre externe et ne sont jamais partagés entre environnements.
+
+## Points ouverts
+
+- [ADR-0005](docs/adr/0005-budget-portail-captif.md) — le poids JavaScript du portail
+  dépasse la cible du §12.1 ; **décision requise avant la phase 2**.
+- [Spike OpenWISP](docs/phase0/06-spike-openwisp.md) — sept hypothèses à valider sur les
+  API réelles avant d'écrire l'adaptateur.
+- [Questions bloquantes pour la production](CAHIER_DES_CHARGES_DAKAR_WIFI.md#22-questions-à-valider-avant-la-production) — 19 questions (§22).

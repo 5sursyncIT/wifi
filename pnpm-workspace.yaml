@@ -1,0 +1,9 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+# Native binaries required by the toolchain. Reviewed explicitly: pnpm blocks
+# post-install scripts by default and every addition must be justified here.
+allowBuilds:
+  esbuild: true # bundler used by vitest
+  sharp: true # image pipeline used by next
+  unrs-resolver: true # module resolver used by eslint

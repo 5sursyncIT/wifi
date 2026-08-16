@@ -1,0 +1,145 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.13"
+  NODE_VERSION: "22"
+
+jobs:
+  backend:
+    name: Backend — lint, types, tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: dakar
+          POSTGRES_PASSWORD: dakar
+          POSTGRES_DB: dakar_wifi
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U dakar -d dakar_wifi"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://dakar:dakar@localhost:5432/dakar_wifi
+    defaults:
+      run:
+        working-directory: services/core-api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Lint
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+      - name: Types
+        run: uv run mypy .
+      - name: Tests
+        run: uv run pytest
+
+  frontend:
+    name: Front-end — lint, types, build, budget
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      # Cible du cahier des charges : 150 Ko. Le plancher de Next 16 + React 19 étant
+      # mesuré à 169 Ko, ce seuil est un garde-fou anti-régression, pas la cible.
+      # Décision en attente : voir docs/adr/0005-budget-portail-captif.md
+      - name: Budget de performance du portail (§12.1)
+        run: node scripts/check-bundle-budget.mjs apps/captive-portal 175
+
+  openapi:
+    name: Contrat OpenAPI à jour
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          enable-cache: true
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: uv sync --frozen --directory services/core-api
+      - run: pnpm install --frozen-lockfile
+      - name: Régénère le schéma et le client
+        run: |
+          ENVIRONMENT=local uv run --directory services/core-api \
+            python manage.py spectacular --format openapi --file ../../docs/api/openapi.yaml
+          pnpm api-client:generate
+      - name: Le dépôt doit déjà contenir la version régénérée
+        run: git diff --exit-code docs/api/openapi.yaml packages/api-client/src/schema.d.ts
+
+  secrets:
+    name: Détection de secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Installe gitleaks
+        run: |
+          curl -sSL -o gitleaks.tar.gz \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.24.0/gitleaks_8.24.0_linux_x64.tar.gz
+          tar -xzf gitleaks.tar.gz gitleaks
+      - name: Analyse
+        run: ./gitleaks detect --source . --redact --verbose
+
+  dependencies:
+    name: Analyse des dépendances
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm audit --audit-level high
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Audit des dépendances Python
+        run: |
+          uv export --directory services/core-api --no-hashes --no-emit-project \
+            --format requirements-txt -o /tmp/requirements.txt
+          uvx pip-audit -r /tmp/requirements.txt
+
+  images:
+    name: Construction des images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Image core-api
+        uses: docker/build-push-action@v6
+        with:
+          context: services/core-api
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
