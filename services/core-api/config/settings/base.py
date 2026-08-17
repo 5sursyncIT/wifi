@@ -117,6 +117,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "billing.reconcile_pending_payments",
         "schedule": 300.0,
     },
+    "reconcile-active-entitlements": {
+        "task": "access.reconcile_active_entitlements",
+        "schedule": 3600.0,
+    },
 }
 
 # --- Localisation -----------------------------------------------------------
