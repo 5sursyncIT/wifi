@@ -343,7 +343,19 @@ def test_read_usage_maps_daily_counters():
 
 @override_settings(**OPENWISP)
 @respx.mock
-def test_read_usage_defaults_counters_to_zero_when_checks_missing():
+@pytest.mark.parametrize("payload", [{}, {"checks": None}])
+def test_read_usage_defaults_counters_to_zero_when_checks_absent(payload):
+    respx.get(USAGE).mock(return_value=httpx.Response(200, json=payload))
+
+    usage = OpenWispClient().read_usage("citizen-1")
+
+    assert usage.seconds_used == 0
+    assert usage.bytes_used == 0
+
+
+@override_settings(**OPENWISP)
+@respx.mock
+def test_read_usage_defaults_counters_to_zero_when_checks_empty():
     respx.get(USAGE).mock(return_value=httpx.Response(200, json={"checks": []}))
 
     usage = OpenWispClient().read_usage("citizen-1")

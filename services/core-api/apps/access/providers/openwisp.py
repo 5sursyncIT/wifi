@@ -192,7 +192,7 @@ class OpenWispClient(NetworkProvider):
 
         seconds_used = 0
         bytes_used = 0
-        for check in response.json().get("checks", []):
+        for check in response.json().get("checks") or []:
             attribute = check.get("attribute")
             if attribute == "Max-Daily-Session":
                 seconds_used = int(check.get("result", 0))
