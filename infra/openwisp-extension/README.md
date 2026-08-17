@@ -81,8 +81,8 @@ injoignable pendant que les autres répondent est un cas normal, pas un échec.
 
 ## Sécurité et exploitation
 
-Les deux vues exigent que l'appelant soit administrateur d'une organisation commune
-avec l'usager ciblé. Une tentative d'action entre organisations renvoie `403`.
+Les deux vues exigent que l'appelant soit authentifié et membre d'une organisation
+commune avec l'usager ciblé. Une tentative d'action entre organisations renvoie `403`.
 
 Les opérations sensibles doivent rester journalisées en audit côté plateforme métier
 (§13.4), où la justification exigée au §8.8 est disponible. À chaque montée de version

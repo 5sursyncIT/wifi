@@ -4,7 +4,7 @@ from openwisp_radius.utils import load_model
 from openwisp_users.models import Organization, OrganizationUser
 from rest_framework.test import APIClient
 
-from dakar_radius_ext.services import assign_group
+from openwisp.configuration.dakar_radius_ext.services import assign_group
 
 RadiusGroup = load_model("RadiusGroup")
 RadiusUserGroup = load_model("RadiusUserGroup")
