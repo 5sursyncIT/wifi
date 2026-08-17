@@ -1,4 +1,4 @@
-from dakar_radius_ext.org_scope import shares_organization
+from openwisp.configuration.dakar_radius_ext.org_scope import shares_organization
 
 
 def test_sharing_one_organization_is_enough():

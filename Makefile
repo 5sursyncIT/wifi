@@ -95,14 +95,16 @@ openwisp-up: ## Instance OpenWISP jetable (hors make up)
 	@cp -R infra/openwisp-extension/dakar_radius_ext \
 	    $(OPENWISP_DIR)/customization/configuration/django/
 	@cp infra/openwisp/seed.py $(OPENWISP_DIR)/customization/configuration/django/
-	$(OPENWISP_COMPOSE) up -d
+	OPENWISP_VERSION=$(OPENWISP_TAG) $(OPENWISP_COMPOSE) up -d
 	@echo "OpenWISP lab: http://localhost:8002"
 
 openwisp-down: ## Arrête l'instance OpenWISP jetable
-	@if [ -d "$(OPENWISP_DIR)" ]; then $(OPENWISP_COMPOSE) down; fi
+	@if [ -d "$(OPENWISP_DIR)" ]; then OPENWISP_VERSION=$(OPENWISP_TAG) $(OPENWISP_COMPOSE) down; fi
 
 test-openwisp: openwisp-up ## Tests d'extension + smoke HTTP (pas CI)
-	$(OPENWISP_COMPOSE) exec -T api python manage.py test openwisp.configuration.dakar_radius_ext
+	@OPENWISP_VERSION=$(OPENWISP_TAG) $(OPENWISP_COMPOSE) images \
+		| awk 'NR > 1 && $$2 ~ /^openwisp\// { found=1; image=$$2 ":" $$3; if (image !~ /:$(OPENWISP_TAG)$$/) bad=1 } END { exit (!found || bad) }'
+	OPENWISP_VERSION=$(OPENWISP_TAG) $(OPENWISP_COMPOSE) exec -T api python manage.py test openwisp.configuration.dakar_radius_ext
 
 clean: ## Supprime les services et les volumes (données locales perdues)
 	$(COMPOSE) down -v

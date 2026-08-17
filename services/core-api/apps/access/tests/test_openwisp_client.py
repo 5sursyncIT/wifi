@@ -1,6 +1,7 @@
 """HTTP adapter for OpenWISP (cahier des charges §11, DW-P5-02)."""
 
 import json
+import logging
 import threading
 
 import httpx
@@ -11,10 +12,9 @@ from django.test import override_settings
 from apps.access.providers import get_network_provider
 from apps.access.providers.base import (
     DisconnectResult,
+    NetworkError,
     NetworkPermanentError,
     NetworkTemporaryError,
-    NetworkTimeout,
-    Usage,
 )
 from apps.access.providers.openwisp import OpenWispClient
 
@@ -24,17 +24,17 @@ USERS = f"{BASE}/api/v1/users/user/"
 DISCONNECT = f"{BASE}/api/v1/dakar/radius/disconnect/"
 USAGE = f"{BASE}/api/v1/radius/organization/ville-de-dakar/account/usage/"
 
-OPENWISP = dict(
-    NETWORK_PROVIDER="openwisp",
-    OPENWISP_BASE_URL=BASE,
-    OPENWISP_API_TOKEN="test-token",
-    OPENWISP_ORGANIZATION_ID="org-1",
-    OPENWISP_ORGANIZATION_SLUG="ville-de-dakar",
-    OPENWISP_HTTP_TIMEOUT_SECONDS=10,
-    OPENWISP_RETRY_MAX=2,
-    OPENWISP_CIRCUIT_FAILURES=5,
-    OPENWISP_CIRCUIT_OPEN_SECONDS=30,
-)
+OPENWISP = {
+    "NETWORK_PROVIDER": "openwisp",
+    "OPENWISP_BASE_URL": BASE,
+    "OPENWISP_API_TOKEN": "test-token",
+    "OPENWISP_ORGANIZATION_ID": "org-1",
+    "OPENWISP_ORGANIZATION_SLUG": "ville-de-dakar",
+    "OPENWISP_HTTP_TIMEOUT_SECONDS": 10,
+    "OPENWISP_RETRY_MAX": 2,
+    "OPENWISP_CIRCUIT_FAILURES": 5,
+    "OPENWISP_CIRCUIT_OPEN_SECONDS": 30,
+}
 
 
 @pytest.fixture(autouse=True)
@@ -73,6 +73,59 @@ def test_assign_plan_posts_the_group_and_reports_applied():
 
 @override_settings(**OPENWISP)
 @respx.mock
+def test_successful_call_logs_request_metadata(caplog):
+    respx.post(ASSIGN).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "username": "citizen-1",
+                "group_name": "dakar-1h",
+                "organization": "org-1",
+                "changed": True,
+            },
+        )
+    )
+
+    with caplog.at_level(logging.INFO, logger="apps.access.providers.openwisp"):
+        OpenWispClient().assign_plan("citizen-1", "dakar-1h")
+
+    record = caplog.records[-1]
+    assert record.http_method == "POST"
+    assert record.http_path == "/api/v1/dakar/radius/assign-group/"
+    assert record.http_status == 200
+    assert record.duration_ms >= 0
+    assert record.subscriber_ref == "citizen-1"
+
+
+@override_settings(**OPENWISP)
+@respx.mock
+def test_failed_call_logs_metadata_without_secrets_or_response_body(caplog):
+    respx.post(ASSIGN).mock(
+        return_value=httpx.Response(
+            400,
+            text="Bearer test-token response-body-secret",
+        )
+    )
+
+    with caplog.at_level(logging.WARNING, logger="apps.access.providers.openwisp"):
+        with pytest.raises(NetworkPermanentError):
+            OpenWispClient().assign_plan("citizen-1", "dakar-1h")
+
+    record = caplog.records[-1]
+    assert record.http_method == "POST"
+    assert record.http_path == "/api/v1/dakar/radius/assign-group/"
+    assert record.http_status == 400
+    assert record.duration_ms >= 0
+    assert record.subscriber_ref == "citizen-1"
+    logged = caplog.text
+    assert "Authorization" not in logged
+    assert "Bearer" not in logged
+    assert "test-token" not in logged
+    assert "response-body-secret" not in logged
+
+
+@override_settings(**OPENWISP)
+@respx.mock
 def test_assigning_the_same_group_is_a_noop():
     respx.post(ASSIGN).mock(
         return_value=httpx.Response(
@@ -96,9 +149,7 @@ def test_assigning_the_same_group_is_a_noop():
 @override_settings(**OPENWISP)
 @respx.mock
 def test_unknown_group_is_a_permanent_error():
-    respx.post(ASSIGN).mock(
-        return_value=httpx.Response(400, json={"detail": "No RADIUS group."})
-    )
+    respx.post(ASSIGN).mock(return_value=httpx.Response(400, json={"detail": "No RADIUS group."}))
 
     with pytest.raises(NetworkPermanentError):
         OpenWispClient().assign_plan("citizen-1", "missing-group")
@@ -165,6 +216,42 @@ def test_four_hundreds_are_not_retried():
 
 @override_settings(**OPENWISP)
 @respx.mock
+def test_non_json_assign_response_is_permanent_and_does_not_stick_probe(monkeypatch):
+    OpenWispClient._opened_at = 1
+    monkeypatch.setattr("apps.access.providers.openwisp.time.monotonic", lambda: 31)
+    route = respx.post(ASSIGN)
+    route.side_effect = [
+        httpx.Response(200, html="<html>not json</html>"),
+        httpx.Response(
+            200,
+            json={
+                "username": "citizen-1",
+                "group_name": "dakar-1h",
+                "organization": "org-1",
+                "changed": True,
+            },
+        ),
+    ]
+    client = OpenWispClient()
+
+    with pytest.raises(NetworkPermanentError):
+        client.assign_plan("citizen-1", "dakar-1h")
+
+    assert client.assign_plan("citizen-1", "dakar-1h").applied is True
+    assert route.call_count == 2
+
+
+@override_settings(**(OPENWISP | {"OPENWISP_RETRY_MAX": 0}))
+@respx.mock
+def test_non_transport_request_error_maps_to_network_error():
+    respx.post(ASSIGN).mock(side_effect=httpx.TooManyRedirects("redirect loop"))
+
+    with pytest.raises(NetworkError):
+        OpenWispClient().assign_plan("citizen-1", "dakar-1h")
+
+
+@override_settings(**OPENWISP)
+@respx.mock
 def test_the_circuit_opens_after_consecutive_retryable_failures(monkeypatch):
     # _record_failure() runs once per exhausted assign_plan, not per HTTP attempt.
     monkeypatch.setattr("apps.access.providers.openwisp.time.sleep", lambda _s: None)
@@ -221,8 +308,7 @@ def test_half_open_admits_only_one_probe(monkeypatch):
     gate_blocked = [
         outcome
         for outcome in outcomes
-        if isinstance(outcome, NetworkTemporaryError)
-        and "circuit is open" in str(outcome)
+        if isinstance(outcome, NetworkTemporaryError) and "circuit is open" in str(outcome)
     ]
     assert len(gate_blocked) == 1
     assert respx.calls.call_count == calls_before + 3
@@ -244,9 +330,7 @@ def test_a_permanent_error_does_not_open_the_circuit():
 @override_settings(**OPENWISP)
 @respx.mock
 def test_ensure_user_creates_when_missing():
-    get_route = respx.get(USERS).mock(
-        return_value=httpx.Response(200, json={"results": []})
-    )
+    get_route = respx.get(USERS).mock(return_value=httpx.Response(200, json={"results": []}))
     created = respx.post(USERS).mock(
         return_value=httpx.Response(201, json={"id": "u1", "username": "citizen-1"})
     )
@@ -267,11 +351,19 @@ def test_ensure_user_creates_when_missing():
 
 @override_settings(**OPENWISP)
 @respx.mock
+def test_ensure_user_missing_created_id_is_a_permanent_error():
+    respx.get(USERS).mock(return_value=httpx.Response(200, json={"results": []}))
+    respx.post(USERS).mock(return_value=httpx.Response(201, json={"username": "citizen-1"}))
+
+    with pytest.raises(NetworkPermanentError):
+        OpenWispClient().ensure_user("citizen-1")
+
+
+@override_settings(**OPENWISP)
+@respx.mock
 def test_ensure_user_is_idempotent_when_present():
     respx.get(USERS).mock(
-        return_value=httpx.Response(
-            200, json={"results": [{"id": "u1", "username": "citizen-1"}]}
-        )
+        return_value=httpx.Response(200, json={"results": [{"id": "u1", "username": "citizen-1"}]})
     )
     post = respx.post(USERS)
 
@@ -303,9 +395,7 @@ def test_disconnect_returns_per_session_results_without_raising():
 
     assert results == [
         DisconnectResult(session_id="abc", acknowledged=True, detail="acknowledged"),
-        DisconnectResult(
-            session_id="def", acknowledged=False, detail="refused_or_unreachable"
-        ),
+        DisconnectResult(session_id="def", acknowledged=False, detail="refused_or_unreachable"),
     ]
 
 
