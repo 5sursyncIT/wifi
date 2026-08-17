@@ -19,11 +19,13 @@ class OpenWispClient(NetworkProvider):
     name = "openwisp"
     _failures = 0
     _opened_at: float | None = None
+    _probe_in_flight = False
 
     @classmethod
     def reset(cls) -> None:
         cls._failures = 0
         cls._opened_at = None
+        cls._probe_in_flight = False
 
     def _url(self, path: str) -> str:
         return urljoin(settings.OPENWISP_BASE_URL.rstrip("/") + "/", path.lstrip("/"))
@@ -34,16 +36,20 @@ class OpenWispClient(NetworkProvider):
         elapsed = time.monotonic() - self._opened_at
         if elapsed < settings.OPENWISP_CIRCUIT_OPEN_SECONDS:
             raise NetworkTemporaryError("OpenWISP circuit is open.")
-        # Half-open: allow one probe. Leave _opened_at set until success clears it.
+        if type(self)._probe_in_flight:
+            raise NetworkTemporaryError("OpenWISP circuit is open.")
+        type(self)._probe_in_flight = True
 
     def _record_success(self) -> None:
         type(self)._failures = 0
         type(self)._opened_at = None
+        type(self)._probe_in_flight = False
 
     def _record_failure(self) -> None:
         type(self)._failures += 1
         if type(self)._failures >= settings.OPENWISP_CIRCUIT_FAILURES:
             type(self)._opened_at = time.monotonic()
+        type(self)._probe_in_flight = False
 
     def _request(self, method: str, path: str, **kwargs) -> httpx.Response:
         self._raise_if_open()
@@ -81,6 +87,7 @@ class OpenWispClient(NetworkProvider):
                 )
 
             if response.status_code >= 400:
+                type(self)._probe_in_flight = False
                 raise NetworkPermanentError(
                     f"OpenWISP returned HTTP {response.status_code}."
                 )

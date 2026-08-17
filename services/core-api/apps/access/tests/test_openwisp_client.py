@@ -175,6 +175,49 @@ def test_the_circuit_opens_after_consecutive_retryable_failures(monkeypatch):
 
 @override_settings(**OPENWISP)
 @respx.mock
+def test_half_open_admits_only_one_probe(monkeypatch):
+    monkeypatch.setattr("apps.access.providers.openwisp.time.sleep", lambda _s: None)
+    client_a = OpenWispClient()
+    client_b = OpenWispClient()
+
+    respx.post(ASSIGN).mock(return_value=httpx.Response(503))
+    for _ in range(5):
+        with pytest.raises(NetworkTemporaryError):
+            client_a.assign_plan("citizen-1", "dakar-1h")
+
+    opened_at = OpenWispClient._opened_at
+    assert opened_at is not None
+    monkeypatch.setattr(
+        "apps.access.providers.openwisp.time.monotonic",
+        lambda: opened_at + OPENWISP["OPENWISP_CIRCUIT_OPEN_SECONDS"],
+    )
+
+    calls_before = respx.calls.call_count
+    blocked_calls: list[int] = []
+
+    def first_probe_request(request):
+        blocked_calls.append(respx.calls.call_count)
+        with pytest.raises(NetworkTemporaryError):
+            client_b.assign_plan("citizen-1", "dakar-1h")
+        blocked_calls.append(respx.calls.call_count)
+        return httpx.Response(503)
+
+    route = respx.post(ASSIGN)
+    route.side_effect = [
+        first_probe_request,
+        httpx.Response(503),
+        httpx.Response(503),
+    ]
+
+    with pytest.raises(NetworkTemporaryError):
+        client_a.assign_plan("citizen-1", "dakar-1h")
+
+    assert respx.calls.call_count == calls_before + 3
+    assert blocked_calls[0] == blocked_calls[1]
+
+
+@override_settings(**OPENWISP)
+@respx.mock
 def test_a_permanent_error_does_not_open_the_circuit():
     respx.post(ASSIGN).mock(return_value=httpx.Response(400, json={"detail": "no"}))
     client = OpenWispClient()
