@@ -33,3 +33,7 @@ htmlcov/
 /scratch/
 test-results/
 playwright-report/
+infra/docker-openwisp/
+services/core-api/celerybeat-schedule
+services/core-api/celerybeat-schedule-shm
+services/core-api/celerybeat-schedule-wal

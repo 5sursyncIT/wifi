@@ -1,10 +1,14 @@
 COMPOSE := docker compose -f infra/compose/docker-compose.yml
 API := uv run --directory services/core-api
 MANAGE := ENVIRONMENT=local $(API) python manage.py
+OPENWISP_DIR := infra/docker-openwisp
+OPENWISP_TAG := 25.10.4
+OPENWISP_COMPOSE := docker compose -f $(OPENWISP_DIR)/docker-compose.yml --env-file infra/openwisp/.env
 
 .DEFAULT_GOAL := help
 .PHONY: help setup up down logs dev migrate makemigrations seed superuser \
-        test test-api test-web e2e lint typecheck format openapi check clean
+        test test-api test-web e2e lint typecheck format openapi check clean \
+        openwisp-up openwisp-down test-openwisp
 
 help: ## Affiche cette aide
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -77,6 +81,28 @@ openapi: ## Régénère le schéma OpenAPI et le client TypeScript
 	pnpm api-client:generate
 
 check: lint typecheck test ## Reproduit localement les contrôles de la CI
+
+openwisp-up: ## Instance OpenWISP jetable (hors make up)
+	@if [ ! -d "$(OPENWISP_DIR)/.git" ]; then \
+	  git clone --depth 1 --branch $(OPENWISP_TAG) https://github.com/openwisp/docker-openwisp.git $(OPENWISP_DIR); \
+	fi
+	@test -f infra/openwisp/.env || cp infra/openwisp/.env.example infra/openwisp/.env
+	@cp infra/openwisp/.env $(OPENWISP_DIR)/.env
+	@mkdir -p $(OPENWISP_DIR)/customization/configuration/django
+	@cp infra/openwisp-extension/custom_django_settings.py \
+	    infra/openwisp-extension/custom_urls.py \
+	    $(OPENWISP_DIR)/customization/configuration/django/
+	@cp -R infra/openwisp-extension/dakar_radius_ext \
+	    $(OPENWISP_DIR)/customization/configuration/django/
+	@cp infra/openwisp/seed.py $(OPENWISP_DIR)/customization/configuration/django/
+	$(OPENWISP_COMPOSE) up -d
+	@echo "OpenWISP lab: http://localhost:8002"
+
+openwisp-down: ## Arrête l'instance OpenWISP jetable
+	@if [ -d "$(OPENWISP_DIR)" ]; then $(OPENWISP_COMPOSE) down; fi
+
+test-openwisp: openwisp-up ## Tests d'extension + smoke HTTP (pas CI)
+	$(OPENWISP_COMPOSE) exec -T api python manage.py test openwisp.configuration.dakar_radius_ext
 
 clean: ## Supprime les services et les volumes (données locales perdues)
 	$(COMPOSE) down -v

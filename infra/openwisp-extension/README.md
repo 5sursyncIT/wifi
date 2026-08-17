@@ -41,17 +41,18 @@ dakar_radius_ext/           l'application elle-même
 
 ## Déploiement
 
-Copier le contenu de ce répertoire dans le répertoire de personnalisation de
-`docker-openwisp`, monté en lecture seule dans les conteneurs `dashboard`, `api`,
-`celery`, `celery_monitoring` et `celerybeat` :
+L'extension est validée avec OpenWISP `25.10.4`. Depuis la racine du projet, le
+laboratoire jetable copie automatiquement son contenu dans le répertoire de
+personnalisation officiel de `docker-openwisp` :
 
 ```bash
-cp custom_django_settings.py custom_urls.py <docker-openwisp>/customization/configuration/django/
-cp -r dakar_radius_ext                      <docker-openwisp>/customization/configuration/django/
-docker compose restart api dashboard celery
+make openwisp-up
+make test-openwisp
 ```
 
-Aucune migration : l'extension n'ajoute aucun modèle.
+Le répertoire est monté en lecture seule dans les conteneurs `dashboard`, `api`,
+`celery`, `celery_monitoring` et `celerybeat`. Aucune migration : l'extension
+n'ajoute aucun modèle.
 
 Prérequis côté OpenWISP pour que la déconnexion et le CoA fonctionnent réellement :
 
@@ -78,15 +79,11 @@ curl -X POST https://<api>/api/v1/dakar/radius/disconnect/ \
 `disconnect` renvoie un état **par session** plutôt qu'une erreur globale : une borne
 injoignable pendant que les autres répondent est un cas normal, pas un échec.
 
-## À faire avant la production
+## Sécurité et exploitation
 
-- **Restreindre les droits.** Les vues exigent aujourd'hui `IsAdminUser` (personnel).
-  Il faut les limiter aux organisations dont l'appelant est gestionnaire, sinon un
-  compte de service d'une commune pourrait agir sur une autre.
-- **Journaliser en audit** côté plateforme métier : ces deux opérations sont sensibles
-  (§13.4) et la justification exigée au §8.8 doit être portée par notre API, pas par
-  celle-ci.
-- **Tests automatisés** dans la CI, contre une instance OpenWISP de recette.
-- **Épingler la version d'OpenWISP** validée, et rejouer les tests à chaque montée.
-- Proposer ces endpoints **en amont** au projet openwisp-radius : si le projet les
-  intègre, cette extension disparaît. Décision de publication à prendre par l'équipe.
+Les deux vues exigent que l'appelant soit administrateur d'une organisation commune
+avec l'usager ciblé. Une tentative d'action entre organisations renvoie `403`.
+
+Les opérations sensibles doivent rester journalisées en audit côté plateforme métier
+(§13.4), où la justification exigée au §8.8 est disponible. À chaque montée de version
+d'OpenWISP, mettre à jour l'épinglage puis rejouer `make test-openwisp`.
