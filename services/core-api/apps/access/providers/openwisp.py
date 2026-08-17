@@ -184,16 +184,11 @@ class OpenWispClient(NetworkProvider):
             f"/api/v1/radius/organization/{settings.OPENWISP_ORGANIZATION_SLUG}"
             "/account/usage/"
         )
-        try:
-            response = self._request(
-                "GET",
-                path,
-                params={"username": subscriber_ref},
-            )
-        except NetworkPermanentError as error:
-            if "404" not in str(error):
-                raise
-            response = self._request("GET", path)
+        response = self._request(
+            "GET",
+            path,
+            params={"username": subscriber_ref},
+        )
 
         seconds_used = 0
         bytes_used = 0

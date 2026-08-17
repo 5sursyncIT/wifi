@@ -1,5 +1,6 @@
 """HTTP adapter for OpenWISP (cahier des charges §11, DW-P5-02)."""
 
+import json
 import threading
 
 import httpx
@@ -243,14 +244,25 @@ def test_a_permanent_error_does_not_open_the_circuit():
 @override_settings(**OPENWISP)
 @respx.mock
 def test_ensure_user_creates_when_missing():
-    respx.get(USERS).mock(return_value=httpx.Response(200, json={"results": []}))
+    get_route = respx.get(USERS).mock(
+        return_value=httpx.Response(200, json={"results": []})
+    )
     created = respx.post(USERS).mock(
         return_value=httpx.Response(201, json={"id": "u1", "username": "citizen-1"})
     )
-    respx.patch(f"{USERS}u1/").mock(return_value=httpx.Response(200, json={"id": "u1"}))
+    patch_route = respx.patch(f"{USERS}u1/").mock(
+        return_value=httpx.Response(200, json={"id": "u1"})
+    )
 
     assert OpenWispClient().ensure_user("citizen-1") == "citizen-1"
-    assert created.called
+
+    assert get_route.calls.last.request.url.params["username"] == "citizen-1"
+    post_body = json.loads(created.calls.last.request.content)
+    assert post_body["username"] == "citizen-1"
+    assert post_body["password"]
+    assert post_body["email"] == "citizen-1@radius.dakar-wifi.invalid"
+    patch_body = json.loads(patch_route.calls.last.request.content)
+    assert patch_body == {"organization": "org-1"}
 
 
 @override_settings(**OPENWISP)
@@ -300,7 +312,7 @@ def test_disconnect_returns_per_session_results_without_raising():
 @override_settings(**OPENWISP)
 @respx.mock
 def test_read_usage_maps_daily_counters():
-    respx.get(USAGE).mock(
+    usage_route = respx.get(USAGE).mock(
         return_value=httpx.Response(
             200,
             json={
@@ -324,8 +336,20 @@ def test_read_usage_maps_daily_counters():
 
     usage = OpenWispClient().read_usage("citizen-1")
 
+    assert usage_route.calls.last.request.url.params["username"] == "citizen-1"
     assert usage.seconds_used == 600
     assert usage.bytes_used == 50_000_000
+
+
+@override_settings(**OPENWISP)
+@respx.mock
+def test_read_usage_defaults_counters_to_zero_when_checks_missing():
+    respx.get(USAGE).mock(return_value=httpx.Response(200, json={"checks": []}))
+
+    usage = OpenWispClient().read_usage("citizen-1")
+
+    assert usage.seconds_used == 0
+    assert usage.bytes_used == 0
 
 
 @override_settings(**OPENWISP)
@@ -340,6 +364,25 @@ def test_healthcheck_is_true_on_http_ok():
 @respx.mock
 def test_healthcheck_is_false_on_failure_and_does_not_open_the_circuit():
     respx.get(USERS).mock(return_value=httpx.Response(503))
+    assert OpenWispClient().healthcheck() is False
+    respx.post(ASSIGN).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "username": "x",
+                "group_name": "dakar-1h",
+                "organization": "org-1",
+                "changed": True,
+            },
+        )
+    )
+    OpenWispClient().assign_plan("x", "dakar-1h")  # must still hit HTTP
+
+
+@override_settings(**OPENWISP)
+@respx.mock
+def test_healthcheck_is_false_on_network_error_and_does_not_open_the_circuit():
+    respx.get(USERS).mock(side_effect=httpx.TimeoutException("timed out"))
     assert OpenWispClient().healthcheck() is False
     respx.post(ASSIGN).mock(
         return_value=httpx.Response(
