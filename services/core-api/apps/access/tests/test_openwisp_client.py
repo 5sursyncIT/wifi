@@ -6,7 +6,11 @@ import respx
 from django.test import override_settings
 
 from apps.access.providers import get_network_provider
-from apps.access.providers.base import NetworkPermanentError, NetworkTemporaryError
+from apps.access.providers.base import (
+    NetworkPermanentError,
+    NetworkTemporaryError,
+    NetworkTimeout,
+)
 from apps.access.providers.openwisp import OpenWispClient
 
 BASE = "http://openwisp.test"
@@ -101,3 +105,82 @@ def test_server_error_is_retryable():
         OpenWispClient().assign_plan("citizen-1", "dakar-1h")
 
     assert raised.value.retryable is True
+
+
+@override_settings(**OPENWISP)
+@respx.mock
+def test_a_transient_failure_is_retried_until_success(monkeypatch):
+    monkeypatch.setattr("apps.access.providers.openwisp.time.sleep", lambda _s: None)
+    route = respx.post(ASSIGN)
+    route.side_effect = [
+        httpx.Response(503),
+        httpx.Response(503),
+        httpx.Response(
+            200,
+            json={
+                "username": "citizen-1",
+                "group_name": "dakar-1h",
+                "organization": "org-1",
+                "changed": True,
+            },
+        ),
+    ]
+
+    result = OpenWispClient().assign_plan("citizen-1", "dakar-1h")
+
+    assert result.applied is True
+    assert route.call_count == 3
+
+
+@override_settings(**OPENWISP)
+@respx.mock
+def test_retries_stop_at_the_configured_cap(monkeypatch):
+    monkeypatch.setattr("apps.access.providers.openwisp.time.sleep", lambda _s: None)
+    respx.post(ASSIGN).mock(return_value=httpx.Response(503))
+
+    with pytest.raises(NetworkTemporaryError):
+        OpenWispClient().assign_plan("citizen-1", "dakar-1h")
+
+    assert respx.calls.call_count == 3  # 1 + OPENWISP_RETRY_MAX
+
+
+@override_settings(**OPENWISP)
+@respx.mock
+def test_four_hundreds_are_not_retried():
+    respx.post(ASSIGN).mock(return_value=httpx.Response(400, json={"detail": "no"}))
+
+    with pytest.raises(NetworkPermanentError):
+        OpenWispClient().assign_plan("citizen-1", "dakar-1h")
+
+    assert respx.calls.call_count == 1
+
+
+@override_settings(**OPENWISP)
+@respx.mock
+def test_the_circuit_opens_after_consecutive_retryable_failures(monkeypatch):
+    # _record_failure() runs once per exhausted assign_plan, not per HTTP attempt.
+    monkeypatch.setattr("apps.access.providers.openwisp.time.sleep", lambda _s: None)
+    respx.post(ASSIGN).mock(return_value=httpx.Response(503))
+    client = OpenWispClient()
+
+    for _ in range(5):
+        with pytest.raises(NetworkTemporaryError):
+            client.assign_plan("citizen-1", "dakar-1h")
+
+    calls_before = respx.calls.call_count
+    with pytest.raises(NetworkTemporaryError):
+        client.assign_plan("citizen-1", "dakar-1h")
+    assert respx.calls.call_count == calls_before  # no HTTP
+
+
+@override_settings(**OPENWISP)
+@respx.mock
+def test_a_permanent_error_does_not_open_the_circuit():
+    respx.post(ASSIGN).mock(return_value=httpx.Response(400, json={"detail": "no"}))
+    client = OpenWispClient()
+
+    for _ in range(6):
+        with pytest.raises(NetworkPermanentError):
+            client.assign_plan("citizen-1", "dakar-1h")
+
+    assert respx.calls.call_count == 6

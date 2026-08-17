@@ -1,5 +1,6 @@
 """OpenWISP HTTP adapter behind NetworkProvider (ADR-0001, ADR-0006, §11)."""
 
+import time
 from urllib.parse import urljoin
 
 import httpx
@@ -27,29 +28,67 @@ class OpenWispClient(NetworkProvider):
     def _url(self, path: str) -> str:
         return urljoin(settings.OPENWISP_BASE_URL.rstrip("/") + "/", path.lstrip("/"))
 
-    def _request(self, method: str, path: str, **kwargs) -> httpx.Response:
-        try:
-            response = httpx.request(
-                method,
-                self._url(path),
-                headers={"Authorization": f"Bearer {settings.OPENWISP_API_TOKEN}"},
-                timeout=settings.OPENWISP_HTTP_TIMEOUT_SECONDS,
-                **kwargs,
-            )
-        except httpx.TimeoutException as error:
-            raise NetworkTimeout(str(error)) from error
-        except httpx.TransportError as error:
-            raise NetworkTemporaryError(str(error)) from error
+    def _raise_if_open(self) -> None:
+        if self._opened_at is None:
+            return
+        elapsed = time.monotonic() - self._opened_at
+        if elapsed < settings.OPENWISP_CIRCUIT_OPEN_SECONDS:
+            raise NetworkTemporaryError("OpenWISP circuit is open.")
+        # Half-open: allow one probe. Leave _opened_at set until success clears it.
 
-        if response.status_code >= 500 or response.status_code == 429:
-            raise NetworkTemporaryError(
-                f"OpenWISP returned HTTP {response.status_code}."
-            )
-        if response.status_code >= 400:
-            raise NetworkPermanentError(
-                f"OpenWISP returned HTTP {response.status_code}."
-            )
-        return response
+    def _record_success(self) -> None:
+        type(self)._failures = 0
+        type(self)._opened_at = None
+
+    def _record_failure(self) -> None:
+        type(self)._failures += 1
+        if type(self)._failures >= settings.OPENWISP_CIRCUIT_FAILURES:
+            type(self)._opened_at = time.monotonic()
+
+    def _request(self, method: str, path: str, **kwargs) -> httpx.Response:
+        self._raise_if_open()
+        max_attempts = 1 + settings.OPENWISP_RETRY_MAX
+
+        for attempt in range(1, max_attempts + 1):
+            try:
+                response = httpx.request(
+                    method,
+                    self._url(path),
+                    headers={"Authorization": f"Bearer {settings.OPENWISP_API_TOKEN}"},
+                    timeout=settings.OPENWISP_HTTP_TIMEOUT_SECONDS,
+                    **kwargs,
+                )
+            except httpx.TimeoutException as error:
+                if attempt < max_attempts:
+                    time.sleep(0.2 * 2 ** (attempt - 1))
+                    continue
+                self._record_failure()
+                raise NetworkTimeout(str(error)) from error
+            except httpx.TransportError as error:
+                if attempt < max_attempts:
+                    time.sleep(0.2 * 2 ** (attempt - 1))
+                    continue
+                self._record_failure()
+                raise NetworkTemporaryError(str(error)) from error
+
+            if response.status_code >= 500 or response.status_code == 429:
+                if attempt < max_attempts:
+                    time.sleep(0.2 * 2 ** (attempt - 1))
+                    continue
+                self._record_failure()
+                raise NetworkTemporaryError(
+                    f"OpenWISP returned HTTP {response.status_code}."
+                )
+
+            if response.status_code >= 400:
+                raise NetworkPermanentError(
+                    f"OpenWISP returned HTTP {response.status_code}."
+                )
+
+            self._record_success()
+            return response
+
+        raise RuntimeError("unreachable")
 
     def assign_plan(self, subscriber_ref: str, profile_ref: str) -> AssignmentResult:
         response = self._request(
