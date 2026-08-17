@@ -9,14 +9,19 @@ from django.test import override_settings
 
 from apps.access.providers import get_network_provider
 from apps.access.providers.base import (
+    DisconnectResult,
     NetworkPermanentError,
     NetworkTemporaryError,
     NetworkTimeout,
+    Usage,
 )
 from apps.access.providers.openwisp import OpenWispClient
 
 BASE = "http://openwisp.test"
 ASSIGN = f"{BASE}/api/v1/dakar/radius/assign-group/"
+USERS = f"{BASE}/api/v1/users/user/"
+DISCONNECT = f"{BASE}/api/v1/dakar/radius/disconnect/"
+USAGE = f"{BASE}/api/v1/radius/organization/ville-de-dakar/account/usage/"
 
 OPENWISP = dict(
     NETWORK_PROVIDER="openwisp",
@@ -233,3 +238,118 @@ def test_a_permanent_error_does_not_open_the_circuit():
             client.assign_plan("citizen-1", "dakar-1h")
 
     assert respx.calls.call_count == 6
+
+
+@override_settings(**OPENWISP)
+@respx.mock
+def test_ensure_user_creates_when_missing():
+    respx.get(USERS).mock(return_value=httpx.Response(200, json={"results": []}))
+    created = respx.post(USERS).mock(
+        return_value=httpx.Response(201, json={"id": "u1", "username": "citizen-1"})
+    )
+    respx.patch(f"{USERS}u1/").mock(return_value=httpx.Response(200, json={"id": "u1"}))
+
+    assert OpenWispClient().ensure_user("citizen-1") == "citizen-1"
+    assert created.called
+
+
+@override_settings(**OPENWISP)
+@respx.mock
+def test_ensure_user_is_idempotent_when_present():
+    respx.get(USERS).mock(
+        return_value=httpx.Response(
+            200, json={"results": [{"id": "u1", "username": "citizen-1"}]}
+        )
+    )
+    post = respx.post(USERS)
+
+    assert OpenWispClient().ensure_user("citizen-1") == "citizen-1"
+    assert not post.called
+
+
+@override_settings(**OPENWISP)
+@respx.mock
+def test_disconnect_returns_per_session_results_without_raising():
+    respx.post(DISCONNECT).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "username": "citizen-1",
+                "sessions": [
+                    {"session": "abc", "nas": "10.0.0.1", "status": "acknowledged"},
+                    {
+                        "session": "def",
+                        "nas": "10.0.0.2",
+                        "status": "refused_or_unreachable",
+                    },
+                ],
+            },
+        )
+    )
+
+    results = OpenWispClient().disconnect("citizen-1")
+
+    assert results == [
+        DisconnectResult(session_id="abc", acknowledged=True, detail="acknowledged"),
+        DisconnectResult(
+            session_id="def", acknowledged=False, detail="refused_or_unreachable"
+        ),
+    ]
+
+
+@override_settings(**OPENWISP)
+@respx.mock
+def test_read_usage_maps_daily_counters():
+    respx.get(USAGE).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "checks": [
+                    {
+                        "attribute": "Max-Daily-Session",
+                        "value": "10800",
+                        "result": 600,
+                        "type": "seconds",
+                    },
+                    {
+                        "attribute": "Max-Daily-Session-Traffic",
+                        "value": "3000000000",
+                        "result": 50000000,
+                        "type": "bytes",
+                    },
+                ]
+            },
+        )
+    )
+
+    usage = OpenWispClient().read_usage("citizen-1")
+
+    assert usage.seconds_used == 600
+    assert usage.bytes_used == 50_000_000
+
+
+@override_settings(**OPENWISP)
+@respx.mock
+def test_healthcheck_is_true_on_http_ok():
+    respx.get(f"{USERS}").mock(return_value=httpx.Response(200, json={"results": []}))
+
+    assert OpenWispClient().healthcheck() is True
+
+
+@override_settings(**OPENWISP)
+@respx.mock
+def test_healthcheck_is_false_on_failure_and_does_not_open_the_circuit():
+    respx.get(USERS).mock(return_value=httpx.Response(503))
+    assert OpenWispClient().healthcheck() is False
+    respx.post(ASSIGN).mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "username": "x",
+                "group_name": "dakar-1h",
+                "organization": "org-1",
+                "changed": True,
+            },
+        )
+    )
+    OpenWispClient().assign_plan("x", "dakar-1h")  # must still hit HTTP

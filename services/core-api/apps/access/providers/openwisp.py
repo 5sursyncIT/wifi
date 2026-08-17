@@ -1,5 +1,6 @@
 """OpenWISP HTTP adapter behind NetworkProvider (ADR-0001, ADR-0006, §11)."""
 
+import secrets
 import threading
 import time
 from urllib.parse import urljoin
@@ -9,10 +10,13 @@ from django.conf import settings
 
 from apps.access.providers.base import (
     AssignmentResult,
+    DisconnectResult,
+    NetworkError,
     NetworkPermanentError,
     NetworkProvider,
     NetworkTemporaryError,
     NetworkTimeout,
+    Usage,
 )
 
 
@@ -118,13 +122,85 @@ class OpenWispClient(NetworkProvider):
         )
 
     def healthcheck(self) -> bool:
-        raise NotImplementedError
+        try:
+            response = httpx.request(
+                "GET",
+                self._url("/api/v1/users/user/"),
+                params={"limit": 1},
+                headers={"Authorization": f"Bearer {settings.OPENWISP_API_TOKEN}"},
+                timeout=settings.OPENWISP_HTTP_TIMEOUT_SECONDS,
+            )
+        except (NetworkError, httpx.HTTPError):
+            return False
+        if response.status_code >= 400:
+            return False
+        return True
 
     def ensure_user(self, subscriber_ref: str) -> str:
-        raise NotImplementedError
+        response = self._request(
+            "GET",
+            "/api/v1/users/user/",
+            params={"username": subscriber_ref},
+        )
+        results = response.json().get("results", [])
+        if results:
+            return subscriber_ref
 
-    def disconnect(self, subscriber_ref: str):
-        raise NotImplementedError
+        response = self._request(
+            "POST",
+            "/api/v1/users/user/",
+            json={
+                "username": subscriber_ref,
+                "password": secrets.token_urlsafe(32),
+                "email": f"{subscriber_ref}@radius.dakar-wifi.invalid",
+            },
+        )
+        user_id = response.json()["id"]
+        self._request(
+            "PATCH",
+            f"/api/v1/users/user/{user_id}/",
+            json={"organization": settings.OPENWISP_ORGANIZATION_ID},
+        )
+        return subscriber_ref
 
-    def read_usage(self, subscriber_ref: str):
-        raise NotImplementedError
+    def disconnect(self, subscriber_ref: str) -> list[DisconnectResult]:
+        response = self._request(
+            "POST",
+            "/api/v1/dakar/radius/disconnect/",
+            json={"username": subscriber_ref},
+        )
+        payload = response.json()
+        return [
+            DisconnectResult(
+                session_id=session["session"],
+                acknowledged=session.get("status") == "acknowledged",
+                detail=session.get("status", ""),
+            )
+            for session in payload.get("sessions", [])
+        ]
+
+    def read_usage(self, subscriber_ref: str) -> Usage:
+        path = (
+            f"/api/v1/radius/organization/{settings.OPENWISP_ORGANIZATION_SLUG}"
+            "/account/usage/"
+        )
+        try:
+            response = self._request(
+                "GET",
+                path,
+                params={"username": subscriber_ref},
+            )
+        except NetworkPermanentError as error:
+            if "404" not in str(error):
+                raise
+            response = self._request("GET", path)
+
+        seconds_used = 0
+        bytes_used = 0
+        for check in response.json().get("checks", []):
+            attribute = check.get("attribute")
+            if attribute == "Max-Daily-Session":
+                seconds_used = int(check.get("result", 0))
+            elif attribute == "Max-Daily-Session-Traffic":
+                bytes_used = int(check.get("result", 0))
+        return Usage(seconds_used=seconds_used, bytes_used=bytes_used)
