@@ -45,7 +45,7 @@ class AssignGroupView(_BaseView):
             return Response({"detail": "Unknown user."}, status=status.HTTP_404_NOT_FOUND)
 
         try:
-            user_group = assign_group(user, data["group_name"])
+            user_group, changed = assign_group(user, data["group_name"])
         except GroupNotFound as error:
             return Response({"detail": str(error)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -54,6 +54,7 @@ class AssignGroupView(_BaseView):
                 "username": user.username,
                 "group_name": user_group.group.name,
                 "organization": str(user_group.group.organization_id),
+                "changed": changed,
             }
         )
 

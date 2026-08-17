@@ -47,7 +47,7 @@ def assign_group(user, group_name):
     # the receiver bails out, and the change never reaches the NAS.
     user_group = memberships[0] if memberships else RadiusUserGroup(user=user, priority=1)
     if user_group.pk and user_group.group_id == group.id:
-        return user_group
+        return user_group, False
 
     user_group.group = group
     user_group.full_clean()
@@ -56,7 +56,7 @@ def assign_group(user, group_name):
     # One user carries one plan here, so any extra membership is dropped afterwards.
     for extra in memberships[1:]:
         extra.delete()
-    return user_group
+    return user_group, True
 
 
 def disconnect_user(user):

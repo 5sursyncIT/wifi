@@ -166,6 +166,14 @@ SPECTACULAR_SETTINGS = {
 # --- Adapters (mock-first, cahier des charges §1 rule 7) --------------------
 
 NETWORK_PROVIDER = env.str("NETWORK_PROVIDER", default="mock")
+OPENWISP_BASE_URL = env.str("OPENWISP_BASE_URL", default="https://openwisp.example.invalid")
+OPENWISP_API_TOKEN = env.str("OPENWISP_API_TOKEN", default="change-me")
+OPENWISP_ORGANIZATION_ID = env.str("OPENWISP_ORGANIZATION_ID", default="change-me")
+OPENWISP_ORGANIZATION_SLUG = env.str("OPENWISP_ORGANIZATION_SLUG", default="ville-de-dakar")
+OPENWISP_HTTP_TIMEOUT_SECONDS = env.int("OPENWISP_HTTP_TIMEOUT_SECONDS", default=10)
+OPENWISP_RETRY_MAX = env.int("OPENWISP_RETRY_MAX", default=2)
+OPENWISP_CIRCUIT_FAILURES = env.int("OPENWISP_CIRCUIT_FAILURES", default=5)
+OPENWISP_CIRCUIT_OPEN_SECONDS = env.int("OPENWISP_CIRCUIT_OPEN_SECONDS", default=30)
 SMS_PROVIDER = env.str("SMS_PROVIDER", default="mock")
 PAYMENT_PROVIDER = env.str("PAYMENT_PROVIDER", default="mock")
 

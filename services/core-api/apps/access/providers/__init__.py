@@ -2,10 +2,14 @@ from django.conf import settings
 
 from apps.access.providers.base import NetworkProvider
 from apps.access.providers.mock import MockNetworkProvider
+from apps.access.providers.openwisp import OpenWispClient
 
 # The OpenWISP implementation arrives in phase 5, once the extension of ADR-0006 is
 # hardened. Until then everything runs against the mock (§1 rule 7).
-_PROVIDERS: dict[str, type[NetworkProvider]] = {"mock": MockNetworkProvider}
+_PROVIDERS: dict[str, type[NetworkProvider]] = {
+    "mock": MockNetworkProvider,
+    "openwisp": OpenWispClient,
+}
 
 
 def get_network_provider() -> NetworkProvider:
@@ -18,4 +22,4 @@ def get_network_provider() -> NetworkProvider:
         ) from None
 
 
-__all__ = ["MockNetworkProvider", "NetworkProvider", "get_network_provider"]
+__all__ = ["MockNetworkProvider", "NetworkProvider", "OpenWispClient", "get_network_provider"]
