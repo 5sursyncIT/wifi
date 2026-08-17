@@ -1,5 +1,7 @@
 """HTTP adapter for OpenWISP (cahier des charges §11, DW-P5-02)."""
 
+import threading
+
 import httpx
 import pytest
 import respx
@@ -177,13 +179,12 @@ def test_the_circuit_opens_after_consecutive_retryable_failures(monkeypatch):
 @respx.mock
 def test_half_open_admits_only_one_probe(monkeypatch):
     monkeypatch.setattr("apps.access.providers.openwisp.time.sleep", lambda _s: None)
-    client_a = OpenWispClient()
-    client_b = OpenWispClient()
+    client = OpenWispClient()
 
     respx.post(ASSIGN).mock(return_value=httpx.Response(503))
     for _ in range(5):
         with pytest.raises(NetworkTemporaryError):
-            client_a.assign_plan("citizen-1", "dakar-1h")
+            client.assign_plan("citizen-1", "dakar-1h")
 
     opened_at = OpenWispClient._opened_at
     assert opened_at is not None
@@ -193,27 +194,32 @@ def test_half_open_admits_only_one_probe(monkeypatch):
     )
 
     calls_before = respx.calls.call_count
-    blocked_calls: list[int] = []
+    barrier = threading.Barrier(2)
+    outcomes: list[str | BaseException] = []
 
-    def first_probe_request(request):
-        blocked_calls.append(respx.calls.call_count)
-        with pytest.raises(NetworkTemporaryError):
-            client_b.assign_plan("citizen-1", "dakar-1h")
-        blocked_calls.append(respx.calls.call_count)
-        return httpx.Response(503)
+    def race_assign() -> None:
+        try:
+            barrier.wait(timeout=5)
+            OpenWispClient().assign_plan("citizen-1", "dakar-1h")
+            outcomes.append("ok")
+        except NetworkTemporaryError as error:
+            outcomes.append(error)
 
-    route = respx.post(ASSIGN)
-    route.side_effect = [
-        first_probe_request,
-        httpx.Response(503),
-        httpx.Response(503),
+    threads = [threading.Thread(target=race_assign) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=10)
+
+    assert len(outcomes) == 2
+    gate_blocked = [
+        outcome
+        for outcome in outcomes
+        if isinstance(outcome, NetworkTemporaryError)
+        and "circuit is open" in str(outcome)
     ]
-
-    with pytest.raises(NetworkTemporaryError):
-        client_a.assign_plan("citizen-1", "dakar-1h")
-
+    assert len(gate_blocked) == 1
     assert respx.calls.call_count == calls_before + 3
-    assert blocked_calls[0] == blocked_calls[1]
 
 
 @override_settings(**OPENWISP)

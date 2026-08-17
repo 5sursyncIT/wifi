@@ -1,5 +1,6 @@
 """OpenWISP HTTP adapter behind NetworkProvider (ADR-0001, ADR-0006, §11)."""
 
+import threading
 import time
 from urllib.parse import urljoin
 
@@ -20,6 +21,7 @@ class OpenWispClient(NetworkProvider):
     _failures = 0
     _opened_at: float | None = None
     _probe_in_flight = False
+    _circuit_lock = threading.Lock()
 
     @classmethod
     def reset(cls) -> None:
@@ -31,25 +33,28 @@ class OpenWispClient(NetworkProvider):
         return urljoin(settings.OPENWISP_BASE_URL.rstrip("/") + "/", path.lstrip("/"))
 
     def _raise_if_open(self) -> None:
-        if self._opened_at is None:
-            return
-        elapsed = time.monotonic() - self._opened_at
-        if elapsed < settings.OPENWISP_CIRCUIT_OPEN_SECONDS:
-            raise NetworkTemporaryError("OpenWISP circuit is open.")
-        if type(self)._probe_in_flight:
-            raise NetworkTemporaryError("OpenWISP circuit is open.")
-        type(self)._probe_in_flight = True
+        with type(self)._circuit_lock:
+            if self._opened_at is None:
+                return
+            elapsed = time.monotonic() - self._opened_at
+            if elapsed < settings.OPENWISP_CIRCUIT_OPEN_SECONDS:
+                raise NetworkTemporaryError("OpenWISP circuit is open.")
+            if type(self)._probe_in_flight:
+                raise NetworkTemporaryError("OpenWISP circuit is open.")
+            type(self)._probe_in_flight = True
 
     def _record_success(self) -> None:
-        type(self)._failures = 0
-        type(self)._opened_at = None
-        type(self)._probe_in_flight = False
+        with type(self)._circuit_lock:
+            type(self)._failures = 0
+            type(self)._opened_at = None
+            type(self)._probe_in_flight = False
 
     def _record_failure(self) -> None:
-        type(self)._failures += 1
-        if type(self)._failures >= settings.OPENWISP_CIRCUIT_FAILURES:
-            type(self)._opened_at = time.monotonic()
-        type(self)._probe_in_flight = False
+        with type(self)._circuit_lock:
+            type(self)._failures += 1
+            if type(self)._failures >= settings.OPENWISP_CIRCUIT_FAILURES:
+                type(self)._opened_at = time.monotonic()
+            type(self)._probe_in_flight = False
 
     def _request(self, method: str, path: str, **kwargs) -> httpx.Response:
         self._raise_if_open()
@@ -87,7 +92,8 @@ class OpenWispClient(NetworkProvider):
                 )
 
             if response.status_code >= 400:
-                type(self)._probe_in_flight = False
+                with type(self)._circuit_lock:
+                    type(self)._probe_in_flight = False
                 raise NetworkPermanentError(
                     f"OpenWISP returned HTTP {response.status_code}."
                 )
