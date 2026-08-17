@@ -132,7 +132,7 @@ Le contrat `NetworkProvider` ne change pas. Mapping :
 |---|---|
 | `healthcheck` | GET court sur l'API (échec → `False`, jamais d'exception) |
 | `ensure_user` | GET par username ; si absent, `POST /api/v1/users/user/` puis `PATCH` d'organisation. Mot de passe aléatoire à la création seulement, non stocké dans core-api. Idempotent. |
-| `assign_plan` | `POST /api/v1/dakar/radius/assign-group/` `{username, group_name}`. Si la réponse 200 porte déjà `group_name` égal au demandé → `AssignmentResult(applied=False, profile_ref=..., detail="already assigned")`. Sinon `applied=True`. |
+| `assign_plan` | `POST /api/v1/dakar/radius/assign-group/` `{username, group_name}`. La JSON de l'extension porte `changed` : `true` si un `save` a eu lieu (CoA possible) → `applied=True` ; `false` si le groupe était déjà le bon → `applied=False`, `detail="already assigned"`. Si `changed` est absent, traiter comme `true`. |
 | `disconnect` | `POST /api/v1/dakar/radius/disconnect/`. Une `DisconnectResult` par session du JSON. Un HTTP 2xx avec des sessions `refused_or_unreachable` n'est **pas** une exception : c'est le cas normal d'une borne injoignable. |
 | `read_usage` | `GET /api/v1/radius/organization/<slug>/account/usage/` ; `seconds_used` / `bytes_used` pris sur `Max-Daily-Session` et `Max-Daily-Session-Traffic` quand présents, sinon 0. |
 
@@ -285,8 +285,8 @@ Fichier principal : `apps/access/tests/test_openwisp_client.py`.
 
 | Cas | Attendu |
 |---|---|
-| 200 assign-group avec un nouveau groupe | `applied=True` |
-| 200 assign-group déjà sur ce groupe | `applied=False` (le POST part, l'extension no-op), pas d'exception |
+| 200 assign-group `changed: true` | `applied=True` |
+| 200 assign-group `changed: false` | `applied=False` (le POST part, l'extension no-op), pas d'exception |
 | 500 puis 200 | retry, succès |
 | 5 timeouts d'affilée | circuit ouvert, 6e appel sans HTTP, `NetworkTemporaryError` |
 | 400 groupe inconnu | `NetworkPermanentError`, circuit toujours fermé |
