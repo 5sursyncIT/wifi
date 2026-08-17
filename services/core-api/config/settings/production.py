@@ -5,12 +5,16 @@ Refuses to start on an insecure configuration rather than running degraded.
 
 from django.core.exceptions import ImproperlyConfigured
 
+from config.openwisp_guard import assert_openwisp_ready
 from config.settings.base import *
 from config.settings.base import (
     INSECURE_JWT_KEY_SENTINEL,
     INSECURE_SECRET_KEY_SENTINEL,
     INSECURE_WEBHOOK_SECRET_SENTINEL,
     JWT_SIGNING_KEY,
+    NETWORK_PROVIDER,
+    OPENWISP_API_TOKEN,
+    OPENWISP_BASE_URL,
     PAYMENT_WEBHOOK_SECRET,
     SECRET_KEY,
     env,
@@ -27,6 +31,8 @@ if JWT_SIGNING_KEY == INSECURE_JWT_KEY_SENTINEL:
 
 if PAYMENT_WEBHOOK_SECRET == INSECURE_WEBHOOK_SECRET_SENTINEL:
     raise ImproperlyConfigured("PAYMENT_WEBHOOK_SECRET must be set in production.")
+
+assert_openwisp_ready(NETWORK_PROVIDER, OPENWISP_BASE_URL, OPENWISP_API_TOKEN)
 
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
 if not ALLOWED_HOSTS:

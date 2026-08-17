@@ -66,14 +66,14 @@ appliquée. L'export et la suppression de compte du §8.1 restent à livrer.
 
 ## Phase 5 — OpenWISP staging
 
-| ID | Item |
-|---|---|
-| DW-P5-00 | Durcir l'extension OpenWISP ([ADR-0006](../adr/0006-integration-openwisp.md), maquette dans `infra/openwisp-extension/`) : droits par organisation, tests automatisés, version d'OpenWISP épinglée |
-| DW-P5-01 | Instance OpenWISP staging documentée (Ansible) ; configurer `freeradius_allowed_hosts` et `coa_enabled` |
-| DW-P5-02 | OpenWispClient (adaptateur §11) + gestion erreurs/retries/circuit breaker |
-| DW-P5-03 | Sync utilisateurs/profils RADIUS + réconciliation nocturne ; groupes RADIUS pré-provisionnés référencés par `PlanVersion.radius_profile_ref` |
-| DW-P5-04 | Import accounting sans double comptage (§8.8) |
-| DW-P5-05 | CoA si supporté + test hotspot de laboratoire |
+| ID | Item | État |
+|---|---|---|
+| DW-P5-00 | Durcir l'extension OpenWISP ([ADR-0006](../adr/0006-integration-openwisp.md), maquette dans `infra/openwisp-extension/`) : droits par organisation, tests automatisés, version d'OpenWISP épinglée | livré |
+| DW-P5-01 | Instance OpenWISP staging documentée (Ansible) ; configurer `freeradius_allowed_hosts` et `coa_enabled` | reporté, hors itération adapter-docker |
+| DW-P5-02 | OpenWispClient (adaptateur §11) + gestion erreurs/retries/circuit breaker | livré |
+| DW-P5-03 | Sync utilisateurs/profils RADIUS + réconciliation nocturne ; groupes RADIUS pré-provisionnés référencés par `PlanVersion.radius_profile_ref` | livré (lite) |
+| DW-P5-04 | Import accounting sans double comptage (§8.8) | reporté, hors itération adapter-docker |
+| DW-P5-05 | CoA si supporté + test hotspot de laboratoire | reporté, hors itération adapter-docker |
 
 - **DW-P5-02 — idempotence CoA.** L'adaptateur OpenWISP doit traiter la
   réaffectation du même groupe RADIUS comme un no-op : l'outbox de phase 4 est
