@@ -19,8 +19,10 @@ def reconcile_active_entitlements() -> int:
         return 0
     provider = get_network_provider()
     now = timezone.now()
-    rows = Entitlement.objects.filter(status=Entitlement.Status.ACTIVE).filter(
-        Q(ends_at__isnull=True) | Q(ends_at__gt=now)
+    rows = (
+        Entitlement.objects.filter(status=Entitlement.Status.ACTIVE)
+        .filter(Q(ends_at__isnull=True) | Q(ends_at__gt=now))
+        .order_by("pk")
     )
     repaired = 0
     for entitlement in rows.select_related("plan_version"):

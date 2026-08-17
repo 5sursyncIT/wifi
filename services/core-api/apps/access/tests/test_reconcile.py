@@ -131,21 +131,26 @@ def test_reconcile_continues_after_network_error(
     second.status = Entitlement.Status.ACTIVE
     second.save(update_fields=["status", "updated_at"])
 
-    calls: list[tuple[str, str]] = []
+    lower, higher = sorted([first, second], key=lambda row: row.pk)
+
+    ensure_user_calls: list[str] = []
+    assign_calls: list[tuple[str, str]] = []
 
     class Fake:
         def ensure_user(self, subscriber_ref: str) -> str:
-            if subscriber_ref == str(paid_order.citizen_id):
+            ensure_user_calls.append(subscriber_ref)
+            if len(ensure_user_calls) == 1:
                 raise NetworkPermanentError("temporary outage")
             return subscriber_ref
 
         def assign_plan(self, subscriber_ref: str, profile_ref: str):
-            calls.append((subscriber_ref, profile_ref))
+            assign_calls.append((subscriber_ref, profile_ref))
 
     monkeypatch.setattr("apps.access.tasks.get_network_provider", lambda: Fake())
 
     assert reconcile_active_entitlements() == 1
-    assert calls == [(str(second_citizen.id), plan_version.radius_profile_ref)]
+    assert ensure_user_calls == [str(lower.citizen_id), str(higher.citizen_id)]
+    assert assign_calls == [(str(higher.citizen_id), plan_version.radius_profile_ref)]
 
 
 @override_settings(NETWORK_PROVIDER="openwisp")
