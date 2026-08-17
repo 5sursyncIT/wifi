@@ -63,5 +63,22 @@ services:
       redis:
         condition: service_healthy
 
+  beat:
+    build:
+      context: ../../services/core-api
+    command: celery -A config beat -l info
+    env_file:
+      - ../../.env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-dakar}:${POSTGRES_PASSWORD:-dakar}@db:5432/${POSTGRES_DB:-dakar_wifi}
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ../../services/core-api:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
 volumes:
   postgres_data:

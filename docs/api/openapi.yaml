@@ -188,6 +188,14 @@ paths:
     post:
       operationId: orders_create
       summary: Commander une offre payante
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+          maxLength: 100
+        description: Clé unique de la tentative de commande (100 caractères maximum).
+        required: true
       tags:
       - commandes
       requestBody:

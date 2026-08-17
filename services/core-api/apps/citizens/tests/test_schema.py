@@ -43,6 +43,19 @@ def test_contract_declares_the_citizen_bearer_scheme(schema):
     assert definition["scheme"] == "bearer"
 
 
+def test_order_creation_requires_the_idempotency_header(schema):
+    parameters = schema["paths"]["/api/v1/orders"]["post"].get("parameters", [])
+    parameter = next(
+        (item for item in parameters if item["name"] == "Idempotency-Key"),
+        None,
+    )
+
+    assert parameter is not None
+    assert parameter["in"] == "header"
+    assert parameter["required"] is True
+    assert parameter["schema"] == {"type": "string", "maxLength": 100}
+
+
 @pytest.mark.parametrize(("path", "method"), PROTECTED)
 def test_protected_endpoints_require_the_citizen_token(schema, path, method):
     security = schema["paths"][path][method].get("security")

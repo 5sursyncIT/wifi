@@ -678,7 +678,10 @@ export interface operations {
     orders_create: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                /** @description Clé unique de la tentative de commande (100 caractères maximum). */
+                "Idempotency-Key": string;
+            };
             path?: never;
             cookie?: never;
         };

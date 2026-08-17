@@ -70,6 +70,23 @@ def test_a_successful_webhook_drains_the_outbox_after_commit(
     assert OutboxMessage.objects.get().status == OutboxMessage.Status.DONE
 
 
+@pytest.mark.django_db(transaction=True)
+def test_a_broker_failure_after_commit_does_not_fail_the_webhook(client, placed, monkeypatch):
+    body, headers = MockPaymentProvider.build_webhook(placed)
+
+    def fail_to_publish():
+        raise RuntimeError("broker unavailable")
+
+    monkeypatch.setattr("apps.billing.webhooks.drain_outbox.delay", fail_to_publish)
+
+    response = post(client, body, headers)
+
+    assert response.status_code == 200
+    placed.refresh_from_db()
+    assert placed.status == Order.Status.PAID
+    assert OutboxMessage.objects.get().status == OutboxMessage.Status.PENDING
+
+
 def test_a_webhook_arriving_before_the_browser_returns_is_honoured(client, placed):
     """§16.1 — nothing special is needed, and a test keeps it that way.
 
@@ -174,6 +191,29 @@ def test_a_refusal_fails_the_order(client, placed):
     placed.refresh_from_db()
     assert placed.status == Order.Status.FAILED
     assert not Entitlement.objects.exists()
+
+
+def test_a_success_after_a_refusal_is_recorded_without_reopening_the_order(client, placed):
+    refusal, refusal_headers = MockPaymentProvider.build_webhook(
+        placed, status="refused", event_id="EVT-refused"
+    )
+    success, success_headers = MockPaymentProvider.build_webhook(
+        placed, status="succeeded", event_id="EVT-succeeded"
+    )
+    post(client, refusal, refusal_headers)
+
+    response = post(client, success, success_headers)
+
+    assert response.status_code == 200
+    placed.refresh_from_db()
+    assert placed.status == Order.Status.FAILED
+    assert not Entitlement.objects.exists()
+    assert list(
+        WebhookEvent.objects.order_by("created_at").values_list("external_event_id", "outcome")
+    ) == [
+        ("EVT-refused", WebhookEvent.Outcome.PROCESSED),
+        ("EVT-succeeded", WebhookEvent.Outcome.PROCESSED),
+    ]
 
 
 def test_a_duplicate_refusal_is_recorded_without_failing(client, placed):

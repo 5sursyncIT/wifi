@@ -2,7 +2,7 @@
 
 from django.conf import settings
 from django.http import Http404
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import serializers, status
 from rest_framework.decorators import (
     api_view,
@@ -56,6 +56,15 @@ def emit_demo_webhook(request: Request) -> Response:
 @extend_schema(
     request=OrderRequestSerializer,
     responses={201: OrderSerializer, 400: ErrorSerializer, 404: ErrorSerializer},
+    parameters=[
+        OpenApiParameter(
+            name="Idempotency-Key",
+            type={"type": "string", "maxLength": 100},
+            location=OpenApiParameter.HEADER,
+            required=True,
+            description="Clé unique de la tentative de commande (100 caractères maximum).",
+        )
+    ],
     summary="Commander une offre payante",
     tags=["commandes"],
 )

@@ -115,10 +115,15 @@ jobs:
         run: |
           uv run --directory services/core-api python manage.py runserver 0.0.0.0:8000 &
           timeout 60 sh -c 'until curl -sf http://localhost:8000/api/v1/health; do sleep 2; done'
+      - name: Démarre le worker Celery
+        run: |
+          uv run --directory services/core-api celery -A config worker -l info &
+          timeout 60 sh -c \
+            'until uv run --directory services/core-api celery -A config inspect ping; do sleep 2; done'
       - run: pnpm --filter @dakar-wifi/captive-portal build
       - name: Navigateur Playwright
         run: pnpm --filter @dakar-wifi/captive-portal exec playwright install --with-deps chromium
-      - name: Parcours gratuit
+      - name: Parcours d'achat payant
         run: pnpm --filter @dakar-wifi/captive-portal test:e2e
       - uses: actions/upload-artifact@v4
         if: failure()

@@ -144,21 +144,36 @@ def handle(provider_name: str, headers: Mapping[str, str], body: bytes) -> Webho
         return WebhookResult(WebhookEvent.Outcome.PROCESSED, 200)
 
     try:
+        activation_scheduled = False
         with transaction.atomic():
             # Everything that must survive commits together; the network call happens
             # afterwards, driven by the outbox row written here.
+            #
+            # `order` is an unlocked snapshot: expiry or another webhook may have
+            # changed it after the lookup above. Lock and reload so mark_paid always
+            # rechecks the current database state, never a stale PENDING value.
+            current_order = Order.objects.select_for_update().get(pk=order.pk)
             _record(
                 provider_name,
                 event.external_event_id,
                 body,
                 outcome=WebhookEvent.Outcome.PROCESSED,
-                order=order,
+                order=current_order,
                 signature_valid=True,
                 payload=minimised,
             )
-            mark_paid(order, fees_xof=event.fees_xof)
-            entitlement = entitlement_for_order(order, starts_at=timezone.now())
-            enqueue(TOPIC, {"entitlement_id": str(entitlement.pk)})
+            try:
+                mark_paid(current_order, fees_xof=event.fees_xof)
+            except InvalidTransition:
+                logger.warning(
+                    "Ignored a successful webhook for order %s in terminal state %s.",
+                    current_order.order_number,
+                    current_order.status,
+                )
+            else:
+                entitlement = entitlement_for_order(current_order, starts_at=timezone.now())
+                enqueue(TOPIC, {"entitlement_id": str(entitlement.pk)})
+                activation_scheduled = True
     except IntegrityError as error:
         if not _is_processed_event_duplicate(error):
             raise
@@ -175,7 +190,11 @@ def handle(provider_name: str, headers: Mapping[str, str], body: bytes) -> Webho
         )
         return WebhookResult(WebhookEvent.Outcome.DUPLICATE, 200)
 
-    # Fast path: drain as soon as the transaction is durable. The beat remains the
-    # safety net if this worker dies before the task is picked up.
-    transaction.on_commit(drain_outbox.delay)
+    if activation_scheduled:
+        # Fast path: drain as soon as the transaction is durable. The beat remains the
+        # safety net if the broker is unavailable or this worker dies before pickup.
+        try:
+            transaction.on_commit(drain_outbox.delay)
+        except Exception:
+            logger.exception("Could not publish the immediate outbox drain task.")
     return WebhookResult(WebhookEvent.Outcome.PROCESSED, 200)

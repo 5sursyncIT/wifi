@@ -75,6 +75,11 @@ appliquée. L'export et la suppression de compte du §8.1 restent à livrer.
 | DW-P5-04 | Import accounting sans double comptage (§8.8) |
 | DW-P5-05 | CoA si supporté + test hotspot de laboratoire |
 
+- **DW-P5-02 — idempotence CoA.** L'adaptateur OpenWISP doit traiter la
+  réaffectation du même groupe RADIUS comme un no-op : l'outbox de phase 4 est
+  at-least-once et un worker peut mourir après `assign_plan()` mais avant le
+  passage de l'Entitlement à `ACTIVE`.
+
 ## Phase 6 — Vouchers, sponsors et finance
 
 | ID | Item |
