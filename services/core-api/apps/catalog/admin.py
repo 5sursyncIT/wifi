@@ -1,6 +1,7 @@
 from django.contrib import admin
 
 from apps.catalog.models import Plan, PlanVersion
+from apps.core.admin import AuditedModelAdmin
 
 
 class PlanVersionInline(admin.TabularInline):
@@ -26,7 +27,7 @@ class PlanVersionInline(admin.TabularInline):
 
 
 @admin.register(Plan)
-class PlanAdmin(admin.ModelAdmin):
+class PlanAdmin(AuditedModelAdmin):
     list_display = ["code", "name", "type", "status", "price", "priority", "is_visible"]
     list_filter = ["type", "status", "is_visible"]
     search_fields = ["code", "name"]

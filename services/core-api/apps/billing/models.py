@@ -4,6 +4,7 @@ Amounts are integers in XOF and are frozen on the order at creation: a later cha
 the offer must never alter a purchase already made (§8.3).
 """
 
+from django.conf import settings
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
@@ -162,3 +163,52 @@ class WebhookEvent(UUIDTimeStampedModel):
 
     def __str__(self):
         return f"{self.provider} {self.external_event_id} ({self.get_outcome_display()})"
+
+
+class Refund(UUIDTimeStampedModel):
+    class Status(models.TextChoices):
+        REQUESTED = "requested", "Demandé"
+        SUCCEEDED = "succeeded", "Réussi"
+        FAILED = "failed", "Échoué"
+
+    payment = models.ForeignKey(Payment, on_delete=models.PROTECT, related_name="refunds")
+    amount_xof = models.PositiveIntegerField()
+    reason = models.CharField(max_length=200)
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="requested_refunds",
+    )
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.REQUESTED)
+    external_reference = models.CharField(max_length=120, blank=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "remboursement"
+        verbose_name_plural = "remboursements"
+
+    def __str__(self):
+        return f"{self.amount_xof} XOF on {self.payment.external_reference}"
+
+
+class ReconciliationRun(UUIDTimeStampedModel):
+    class Status(models.TextChoices):
+        RUNNING = "running", "En cours"
+        BALANCED = "balanced", "Équilibré"
+        MISMATCH = "mismatch", "Écart"
+        FAILED = "failed", "Échoué"
+
+    provider = models.CharField(max_length=40)
+    period_start = models.DateTimeField()
+    period_end = models.DateTimeField()
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.RUNNING)
+    totals_json = models.JSONField(default=dict)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "rapprochement"
+        verbose_name_plural = "rapprochements"
+
+    def __str__(self):
+        return f"{self.provider} {self.period_start:%Y-%m-%d} ({self.get_status_display()})"

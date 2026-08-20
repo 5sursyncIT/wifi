@@ -1,6 +1,8 @@
 from django.conf import settings
 from rest_framework import serializers
 
+from apps.core.i18n import localized
+
 
 class PlanOfferSerializer(serializers.Serializer):
     """Public view of an offer.
@@ -10,8 +12,8 @@ class PlanOfferSerializer(serializers.Serializer):
     """
 
     code = serializers.CharField()
-    name = serializers.CharField()
-    description = serializers.CharField()
+    name = serializers.SerializerMethodField()
+    description = serializers.SerializerMethodField()
     type = serializers.CharField()
     plan_version_id = serializers.UUIDField(source="current_version_id", read_only=True)
     price_xof = serializers.SerializerMethodField()
@@ -22,6 +24,12 @@ class PlanOfferSerializer(serializers.Serializer):
     bandwidth_down_kbps = serializers.SerializerMethodField()
     bandwidth_up_kbps = serializers.SerializerMethodField()
     max_simultaneous_sessions = serializers.SerializerMethodField()
+
+    def get_name(self, plan) -> str:
+        return localized(plan, "name", self.context.get("locale", "fr"))
+
+    def get_description(self, plan) -> str:
+        return localized(plan, "description", self.context.get("locale", "fr"))
 
     def get_price_xof(self, plan) -> int:
         return plan.current_version.price_xof
@@ -52,24 +60,40 @@ class ZoneSerializer(serializers.Serializer):
     code = serializers.CharField()
     # DRF's metaclass pops declared fields off the class, so this does not actually
     # shadow Field.label; mypy cannot see that.
-    label = serializers.CharField()  # type: ignore[assignment]
+    label = serializers.SerializerMethodField()  # type: ignore[assignment]
     access_mode = serializers.CharField()
     timezone = serializers.CharField()
-    welcome_message = serializers.CharField()
+    welcome_message = serializers.SerializerMethodField()
+
+    def get_label(self, zone) -> str:
+        return localized(zone, "label", self.context.get("locale", "fr"))
+
+    def get_welcome_message(self, zone) -> str:
+        return localized(zone, "welcome_message", self.context.get("locale", "fr"))
 
 
 class SiteSerializer(serializers.Serializer):
-    name = serializers.CharField()
+    name = serializers.SerializerMethodField()
     address = serializers.CharField()
     organization = serializers.SerializerMethodField()
 
+    def get_name(self, site) -> str:
+        return localized(site, "name", self.context.get("locale", "fr"))
+
     def get_organization(self, site) -> str:
-        return site.organization.name
+        return localized(site.organization, "name", self.context.get("locale", "fr"))
 
 
 class FallbackSerializer(serializers.Serializer):
     active = serializers.BooleanField()
     reason = serializers.CharField(allow_blank=True)
+
+
+class MocksSerializer(serializers.Serializer):
+    """Tells the portal to label simulated providers (§1 rule 14)."""
+
+    network = serializers.BooleanField()
+    payment = serializers.BooleanField()
 
 
 class PortalContextSerializer(serializers.Serializer):
@@ -78,6 +102,7 @@ class PortalContextSerializer(serializers.Serializer):
     fallback = FallbackSerializer()
     plans = PlanOfferSerializer(many=True)
     redirect_url = serializers.CharField(allow_null=True)
+    mocks = MocksSerializer()
 
 
 class PortalPlansSerializer(serializers.Serializer):
@@ -93,6 +118,7 @@ class PublicSiteSerializer(serializers.Serializer):
     longitude = serializers.DecimalField(max_digits=9, decimal_places=6)
     status = serializers.CharField()
     hotspot_count = serializers.IntegerField()
+    open_incident_count = serializers.IntegerField()
     access_modes = serializers.ListField(child=serializers.CharField())
 
 

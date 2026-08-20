@@ -49,4 +49,10 @@ describe("formatVolume", () => {
   it("keeps one decimal only when it carries information", () => {
     expect(formatVolume(1_500_000_000)).toBe("1,5 Go");
   });
+
+  it("uses English units and a decimal point", () => {
+    expect(formatVolume(1_500_000_000, "en")).toBe("1.5 GB");
+    expect(formatPrice(0, "en")).toBe("Free");
+    expect(formatDuration(3600, "en")).toBe("1 hour");
+  });
 });

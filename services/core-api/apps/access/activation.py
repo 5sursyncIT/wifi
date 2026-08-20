@@ -13,6 +13,7 @@ from django.utils import timezone
 from apps.access.models import Entitlement
 from apps.access.providers import get_network_provider
 from apps.access.providers.base import NetworkError
+from apps.access.sessions import record_open_session
 from apps.core.outbox import PermanentHandlerError, register
 
 logger = logging.getLogger(__name__)
@@ -87,3 +88,4 @@ def activate_entitlement(payload: dict) -> None:
             "updated_at",
         ]
     )
+    record_open_session(entitlement=entitlement)

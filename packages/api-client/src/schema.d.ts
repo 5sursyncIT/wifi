@@ -109,6 +109,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/deletion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Supprimer le compte (anonymisation) */
+        post: operations["me_deletion_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/entitlements": {
         parameters: {
             query?: never;
@@ -120,6 +137,57 @@ export interface paths {
         get: operations["me_entitlements_retrieve"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Exporter les données du compte */
+        get: operations["me_export_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sessions réseau du citoyen connecté */
+        get: operations["me_sessions_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/sessions/{session_id}/disconnect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Forcer la déconnexion d'une session */
+        post: operations["me_sessions_disconnect_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -268,6 +336,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/support/tickets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ouvrir un ticket de support */
+        post: operations["support_tickets_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/vouchers/redeem": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Activer un coupon */
+        post: operations["vouchers_redeem_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/webhooks/payments/{provider}": {
         parameters: {
             query?: never;
@@ -289,6 +391,38 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AccountCitizen: {
+            /** Format: uuid */
+            id: string;
+            phone_e164: string;
+            email: string;
+            first_name: string;
+            last_name: string;
+            preferred_language: string;
+            status: string;
+            /** Format: date-time */
+            verified_at: string | null;
+        };
+        AccountExport: {
+            /** Format: date-time */
+            exported_at: string;
+            citizen: components["schemas"]["AccountCitizen"];
+            consents: components["schemas"]["ConsentExport"][];
+            devices: components["schemas"]["DeviceExport"][];
+            entitlements: components["schemas"]["EntitlementExport"][];
+            orders: components["schemas"]["OrderExport"][];
+            tickets: components["schemas"]["TicketExport"][];
+        };
+        /**
+         * @description * `connexion` - Connexion
+         *     * `otp` - Code SMS
+         *     * `paiement` - Paiement
+         *     * `quota` - Quota
+         *     * `qualite` - Qualité
+         *     * `autre` - Autre
+         * @enum {string}
+         */
+        CategoryEnum: "connexion" | "otp" | "paiement" | "quota" | "qualite" | "autre";
         Citizen: {
             /** Format: uuid */
             id: string;
@@ -298,6 +432,21 @@ export interface components {
             status: string;
             /** Format: date-time */
             verified_at: string | null;
+        };
+        ConsentExport: {
+            type: string;
+            version: string;
+            /** Format: date-time */
+            accepted_at: string;
+            source: string;
+        };
+        DeviceExport: {
+            mac_hash: string;
+            label: string;
+            /** Format: date-time */
+            first_seen_at: string;
+            /** Format: date-time */
+            last_seen_at: string;
         };
         Entitlement: {
             /** Format: uuid */
@@ -310,6 +459,18 @@ export interface components {
             ends_at: string | null;
             readonly zone: string;
             readonly plan: string;
+        };
+        EntitlementExport: {
+            /** Format: uuid */
+            id: string;
+            source: string;
+            status: string;
+            zone: string;
+            plan: string;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string | null;
         };
         EntitlementList: {
             entitlements: components["schemas"]["Entitlement"][];
@@ -340,6 +501,11 @@ export interface components {
             /** @description 'ok' or 'error' */
             cache: string;
         };
+        /** @description Tells the portal to label simulated providers (§1 rule 14). */
+        Mocks: {
+            network: boolean;
+            payment: boolean;
+        };
         Order: {
             /** Format: uuid */
             readonly id: string;
@@ -357,6 +523,16 @@ export interface components {
             readonly instructions: string;
             readonly redirect_url: string;
             readonly entitlement_status: string;
+        };
+        OrderExport: {
+            order_number: string;
+            amount_xof: number;
+            currency: string;
+            status: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            paid_at: string | null;
         };
         OrderRequestRequest: {
             nas_id: string;
@@ -399,6 +575,7 @@ export interface components {
             fallback: components["schemas"]["Fallback"];
             plans: components["schemas"]["PlanOffer"][];
             redirect_url: string | null;
+            mocks: components["schemas"]["Mocks"];
         };
         PortalPlans: {
             plans: components["schemas"]["PlanOffer"][];
@@ -413,6 +590,7 @@ export interface components {
             longitude: string;
             status: string;
             hotspot_count: number;
+            open_incident_count: number;
             access_modes: string[];
         };
         PublicSites: {
@@ -426,8 +604,26 @@ export interface components {
             /** Format: date-time */
             paid_at?: string | null;
         };
+        RedeemRequestRequest: {
+            nas_id: string;
+            code: string;
+        };
         RefreshRequest: {
             refresh: string;
+        };
+        Session: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            started_at: string;
+            /** Format: date-time */
+            ended_at: string | null;
+            bytes_in: number;
+            bytes_out: number;
+            readonly site: string;
+        };
+        SessionList: {
+            sessions: components["schemas"]["Session"][];
         };
         Site: {
             name: string;
@@ -457,6 +653,27 @@ export interface components {
             version: string;
             content_url: string;
             summary: string;
+        };
+        Ticket: {
+            ticket_number: string;
+            category: string;
+            status: string;
+            /** Format: date-time */
+            opened_at: string;
+        };
+        TicketExport: {
+            ticket_number: string;
+            category: string;
+            status: string;
+            /** Format: date-time */
+            opened_at: string;
+        };
+        TicketRequestRequest: {
+            nas_id?: string;
+            category: components["schemas"]["CategoryEnum"];
+            message: string;
+            /** Format: uuid */
+            order_id?: string;
         };
         TokenPair: {
             access: string;
@@ -656,6 +873,24 @@ export interface operations {
             };
         };
     };
+    me_deletion_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     me_entitlements_retrieve: {
         parameters: {
             query?: never;
@@ -671,6 +906,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntitlementList"];
+                };
+            };
+        };
+    };
+    me_export_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountExport"];
+                };
+            };
+        };
+    };
+    me_sessions_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionList"];
+                };
+            };
+        };
+    };
+    me_sessions_disconnect_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
@@ -930,6 +1239,107 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublicSites"];
+                };
+            };
+        };
+    };
+    support_tickets_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["TicketRequestRequest"];
+                "multipart/form-data": components["schemas"]["TicketRequestRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ticket"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    vouchers_redeem_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Clé unique de la tentative de rédemption (100 caractères maximum). */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RedeemRequestRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["RedeemRequestRequest"];
+                "multipart/form-data": components["schemas"]["RedeemRequestRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Entitlement"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };

@@ -39,7 +39,7 @@ test("un citoyen obtient un accès gratuit en trois écrans", async ({ page, req
   await page.getByRole("button", { name: "Se connecter gratuitement" }).click();
 
   // Écran 2 — identification et consentement explicite.
-  await page.getByLabel("Numéro au format international").fill(phone);
+  await page.getByLabel("Numéro de téléphone").fill(phone);
   await page.getByLabel(/J’accepte les conditions/).check();
   await page.getByRole("button", { name: "Recevoir un code" }).click();
 
@@ -56,7 +56,7 @@ test("un code erroné est refusé sans ouvrir l'accès", async ({ page }) => {
 
   await page.goto(`/?nas_id=${NAS_ID}`);
   await page.getByRole("button", { name: "Se connecter gratuitement" }).click();
-  await page.getByLabel("Numéro au format international").fill(phone);
+  await page.getByLabel("Numéro de téléphone").fill(phone);
   await page.getByLabel(/J’accepte les conditions/).check();
   await page.getByRole("button", { name: "Recevoir un code" }).click();
 

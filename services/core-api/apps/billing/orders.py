@@ -62,6 +62,14 @@ _ALLOWED: dict[str, set[str]] = {
         Order.Status.EXPIRED,
         Order.Status.CANCELLED,
     },
+    Order.Status.PAID: {
+        Order.Status.REFUNDED,
+        Order.Status.PARTIALLY_REFUNDED,
+    },
+    Order.Status.PARTIALLY_REFUNDED: {
+        Order.Status.REFUNDED,
+        Order.Status.PARTIALLY_REFUNDED,
+    },
     # An expired order may still be paid: the confirmation simply arrived late (§8.5).
     Order.Status.EXPIRED: {Order.Status.PAID},
 }
@@ -197,3 +205,8 @@ def expire(order: Order) -> Order:
 def cancel(order: Order) -> Order:
     order.cancelled_at = timezone.now()
     return _move(order, Order.Status.CANCELLED, ["cancelled_at"])
+
+
+def mark_refunded(order: Order, *, partial: bool) -> Order:
+    target = Order.Status.PARTIALLY_REFUNDED if partial else Order.Status.REFUNDED
+    return _move(order, target, [])

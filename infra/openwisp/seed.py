@@ -1,5 +1,7 @@
 """Idempotent seed data for the disposable Dakar OpenWISP lab."""
 
+import os
+
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from openwisp_radius.utils import load_model
@@ -52,7 +54,7 @@ def seed():
     Nas.objects.update_or_create(
         organization=organization,
         name="0.0.0.0/0",
-        defaults={"secret": "lab-nas-secret"},
+        defaults={"secret": os.environ.get("OPENWISP_NAS_SECRET", "lab-nas-secret")},
     )
 
     print(f"OPENWISP_ORGANIZATION_ID={organization.pk}")

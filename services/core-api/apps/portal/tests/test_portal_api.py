@@ -46,6 +46,13 @@ def test_context_is_public_and_describes_the_resolved_zone(client, hotspot, zone
 
 
 @pytest.mark.django_db
+def test_context_labels_mock_network_and_payment_providers(client, hotspot, published_plan):
+    body = client.get(CONTEXT_URL, {"nas_id": hotspot.nas_identifier}).json()
+
+    assert body["mocks"] == {"network": True, "payment": True}
+
+
+@pytest.mark.django_db
 def test_context_reports_amounts_as_integers_in_xof(client, hotspot, published_plan):
     body = client.get(CONTEXT_URL, {"nas_id": hotspot.nas_identifier}).json()
 
@@ -126,3 +133,56 @@ def test_plans_endpoint_lists_the_zone_offers(client, hotspot, published_plan):
 
     assert response.status_code == 200
     assert [plan["code"] for plan in response.json()["plans"]] == ["jour-1"]
+
+
+@pytest.mark.django_db
+def test_context_localizes_catalog_copy_when_lang_is_set(
+    client, hotspot, zone, site, organization, published_plan
+):
+    zone.welcome_message = "Bienvenue sur le Wi-Fi."
+    zone.i18n = {
+        "en": {"label": "Independence Square", "welcome_message": "Welcome to the Wi-Fi."},
+        "wo": {"welcome_message": "Dalal ak jàmm ci Wi-Fi bi."},
+    }
+    zone.save()
+    site.i18n = {"en": {"name": "Independence Square (demonstration)"}}
+    site.save()
+    organization.i18n = {"en": {"name": "City of Dakar — Demonstration"}}
+    organization.save()
+    published_plan.i18n = {
+        "en": {"name": "Day pass", "description": "24 hours of access"},
+    }
+    published_plan.save()
+
+    french = client.get(CONTEXT_URL, {"nas_id": hotspot.nas_identifier}).json()
+    assert french["zone"]["welcome_message"] == "Bienvenue sur le Wi-Fi."
+    assert french["plans"][0]["name"] == "Journée"
+    assert french["site"]["organization"] == "Ville de Dakar — Test"
+
+    english = client.get(CONTEXT_URL, {"nas_id": hotspot.nas_identifier, "lang": "en"}).json()
+    assert english["zone"]["label"] == "Independence Square"
+    assert english["zone"]["welcome_message"] == "Welcome to the Wi-Fi."
+    assert english["site"]["name"] == "Independence Square (demonstration)"
+    assert english["site"]["organization"] == "City of Dakar — Demonstration"
+    assert english["plans"][0]["name"] == "Day pass"
+    assert english["plans"][0]["description"] == "24 hours of access"
+
+    wolof = client.get(CONTEXT_URL, {"nas_id": hotspot.nas_identifier, "lang": "wo"}).json()
+    assert wolof["zone"]["welcome_message"] == "Dalal ak jàmm ci Wi-Fi bi."
+    assert wolof["plans"][0]["name"] == "Journée"
+
+
+@pytest.mark.django_db
+def test_context_honours_accept_language_when_lang_is_absent(
+    client, hotspot, zone, published_plan
+):
+    zone.i18n = {"en": {"welcome_message": "Welcome."}}
+    zone.save(update_fields=["i18n"])
+
+    body = client.get(
+        CONTEXT_URL,
+        {"nas_id": hotspot.nas_identifier},
+        headers={"Accept-Language": "en-GB,en;q=0.8"},
+    ).json()
+
+    assert body["zone"]["welcome_message"] == "Welcome."

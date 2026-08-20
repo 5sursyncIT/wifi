@@ -51,6 +51,7 @@ class Plan(UUIDTimeStampedModel):
 
     renewal_policy = models.TextField(blank=True)
     refund_policy = models.TextField(blank=True)
+    i18n = models.JSONField(default=dict, blank=True)
 
     current_version = models.OneToOneField(
         "catalog.PlanVersion",

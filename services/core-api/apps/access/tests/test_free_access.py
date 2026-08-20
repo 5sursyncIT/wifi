@@ -165,3 +165,33 @@ def test_a_failed_activation_does_not_consume_the_cooldown(citizen, zone, free_p
     # The citizen never got access, so they must not be locked out for a day.
     entitlement = grant_free_access(citizen, zone)
     assert entitlement.status == Entitlement.Status.ACTIVE
+
+
+@pytest.mark.django_db
+def test_a_third_device_is_refused_when_the_limit_is_two(citizen, zone, free_plan, policy):
+    policy.cooldown_seconds = 0
+    policy.max_devices = 2
+    policy.save(update_fields=["cooldown_seconds", "max_devices"])
+
+    grant_free_access(citizen, zone, device_hint="aa:aa:aa:aa:aa:01")
+    grant_free_access(citizen, zone, device_hint="aa:aa:aa:aa:aa:02")
+
+    with pytest.raises(FreeAccessRefused) as raised:
+        grant_free_access(citizen, zone, device_hint="aa:aa:aa:aa:aa:03")
+
+    assert raised.value.reason == "too_many_devices"
+
+
+@pytest.mark.django_db
+def test_the_same_device_can_reconnect_without_consuming_a_new_slot(
+    citizen, zone, free_plan, policy
+):
+    policy.cooldown_seconds = 0
+    policy.max_devices = 1
+    policy.save(update_fields=["cooldown_seconds", "max_devices"])
+
+    first = grant_free_access(citizen, zone, device_hint="aa:aa:aa:aa:aa:01")
+    second = grant_free_access(citizen, zone, device_hint="AA:AA:AA:AA:AA:01")
+
+    assert second.status == Entitlement.Status.ACTIVE
+    assert first.citizen.devices.count() == 1

@@ -1,10 +1,11 @@
 from django.contrib import admin
 
-from apps.access.models import Entitlement, ZoneFreePolicy
+from apps.access.models import Entitlement, NetworkSession, ZoneFreePolicy
+from apps.core.admin import AuditedModelAdmin
 
 
 @admin.register(ZoneFreePolicy)
-class ZoneFreePolicyAdmin(admin.ModelAdmin):
+class ZoneFreePolicyAdmin(AuditedModelAdmin):
     list_display = ["zone", "is_enabled", "daily_seconds", "cooldown_seconds", "max_devices"]
     list_filter = ["is_enabled", "zone__site__organization"]
 
@@ -29,6 +30,23 @@ class EntitlementAdmin(admin.ModelAdmin):
     ]
 
     def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(NetworkSession)
+class NetworkSessionAdmin(admin.ModelAdmin):
+    list_display = ["citizen", "start_at", "stop_at", "bytes_in", "bytes_out"]
+    list_filter = ["stop_at"]
+    search_fields = ["radius_session_id", "citizen__phone_e164"]
+    readonly_fields = [field.name for field in NetworkSession._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
         return False
 
     def has_delete_permission(self, request, obj=None):

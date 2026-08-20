@@ -169,6 +169,17 @@ paths:
               schema:
                 $ref: '#/components/schemas/Citizen'
           description: ''
+  /api/v1/me/deletion:
+    post:
+      operationId: me_deletion_create
+      summary: Supprimer le compte (anonymisation)
+      tags:
+      - compte
+      security:
+      - citizenToken: []
+      responses:
+        '204':
+          description: No response body
   /api/v1/me/entitlements:
     get:
       operationId: me_entitlements_retrieve
@@ -183,6 +194,66 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/EntitlementList'
+          description: ''
+  /api/v1/me/export:
+    get:
+      operationId: me_export_retrieve
+      summary: Exporter les données du compte
+      tags:
+      - compte
+      security:
+      - citizenToken: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountExport'
+          description: ''
+  /api/v1/me/sessions:
+    get:
+      operationId: me_sessions_retrieve
+      summary: Sessions réseau du citoyen connecté
+      tags:
+      - compte
+      security:
+      - citizenToken: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionList'
+          description: ''
+  /api/v1/me/sessions/{session_id}/disconnect:
+    post:
+      operationId: me_sessions_disconnect_create
+      summary: Forcer la déconnexion d'une session
+      parameters:
+      - in: path
+        name: session_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - compte
+      security:
+      - citizenToken: []
+      responses:
+        '204':
+          description: No response body
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
           description: ''
   /api/v1/orders:
     post:
@@ -441,6 +512,105 @@ paths:
               schema:
                 $ref: '#/components/schemas/PublicSites'
           description: ''
+  /api/v1/support/tickets:
+    post:
+      operationId: support_tickets_create
+      summary: Ouvrir un ticket de support
+      tags:
+      - support
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TicketRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TicketRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TicketRequestRequest'
+        required: true
+      security:
+      - citizenToken: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ticket'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+  /api/v1/vouchers/redeem:
+    post:
+      operationId: vouchers_redeem_create
+      summary: Activer un coupon
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+          maxLength: 100
+        description: Clé unique de la tentative de rédemption (100 caractères maximum).
+        required: true
+      tags:
+      - portail
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RedeemRequestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RedeemRequestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RedeemRequestRequest'
+        required: true
+      security:
+      - citizenToken: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Entitlement'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: ''
   /api/v1/webhooks/payments/{provider}:
     post:
       operationId: webhooks_payments_create
@@ -462,6 +632,90 @@ paths:
           description: No response body
 components:
   schemas:
+    AccountCitizen:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        phone_e164:
+          type: string
+        email:
+          type: string
+        first_name:
+          type: string
+        last_name:
+          type: string
+        preferred_language:
+          type: string
+        status:
+          type: string
+        verified_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+      required:
+      - email
+      - first_name
+      - id
+      - last_name
+      - phone_e164
+      - preferred_language
+      - status
+      - verified_at
+    AccountExport:
+      type: object
+      properties:
+        exported_at:
+          type: string
+          format: date-time
+        citizen:
+          $ref: '#/components/schemas/AccountCitizen'
+        consents:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConsentExport'
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/DeviceExport'
+        entitlements:
+          type: array
+          items:
+            $ref: '#/components/schemas/EntitlementExport'
+        orders:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderExport'
+        tickets:
+          type: array
+          items:
+            $ref: '#/components/schemas/TicketExport'
+      required:
+      - citizen
+      - consents
+      - devices
+      - entitlements
+      - exported_at
+      - orders
+      - tickets
+    CategoryEnum:
+      enum:
+      - connexion
+      - otp
+      - paiement
+      - quota
+      - qualite
+      - autre
+      type: string
+      description: |-
+        * `connexion` - Connexion
+        * `otp` - Code SMS
+        * `paiement` - Paiement
+        * `quota` - Quota
+        * `qualite` - Qualité
+        * `autre` - Autre
     Citizen:
       type: object
       properties:
@@ -488,6 +742,41 @@ components:
       - preferred_language
       - status
       - verified_at
+    ConsentExport:
+      type: object
+      properties:
+        type:
+          type: string
+        version:
+          type: string
+        accepted_at:
+          type: string
+          format: date-time
+        source:
+          type: string
+      required:
+      - accepted_at
+      - source
+      - type
+      - version
+    DeviceExport:
+      type: object
+      properties:
+        mac_hash:
+          type: string
+        label:
+          type: string
+        first_seen_at:
+          type: string
+          format: date-time
+        last_seen_at:
+          type: string
+          format: date-time
+      required:
+      - first_seen_at
+      - label
+      - last_seen_at
+      - mac_hash
     Entitlement:
       type: object
       properties:
@@ -512,6 +801,36 @@ components:
         plan:
           type: string
           readOnly: true
+      required:
+      - ends_at
+      - id
+      - plan
+      - source
+      - starts_at
+      - status
+      - zone
+    EntitlementExport:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        source:
+          type: string
+        status:
+          type: string
+        zone:
+          type: string
+        plan:
+          type: string
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
       required:
       - ends_at
       - id
@@ -591,6 +910,17 @@ components:
       required:
       - cache
       - database
+    Mocks:
+      type: object
+      description: Tells the portal to label simulated providers (§1 rule 14).
+      properties:
+        network:
+          type: boolean
+        payment:
+          type: boolean
+      required:
+      - network
+      - payment
     Order:
       type: object
       properties:
@@ -641,6 +971,32 @@ components:
       - mode
       - order_number
       - redirect_url
+    OrderExport:
+      type: object
+      properties:
+        order_number:
+          type: string
+        amount_xof:
+          type: integer
+        currency:
+          type: string
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        paid_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+      required:
+      - amount_xof
+      - created_at
+      - currency
+      - order_number
+      - paid_at
+      - status
     OrderRequestRequest:
       type: object
       properties:
@@ -768,8 +1124,11 @@ components:
           type:
           - string
           - 'null'
+        mocks:
+          $ref: '#/components/schemas/Mocks'
       required:
       - fallback
+      - mocks
       - plans
       - redirect_url
       - site
@@ -803,6 +1162,8 @@ components:
           type: string
         hotspot_count:
           type: integer
+        open_incident_count:
+          type: integer
         access_modes:
           type: array
           items:
@@ -814,6 +1175,7 @@ components:
       - latitude
       - longitude
       - name
+      - open_incident_count
       - status
     PublicSites:
       type: object
@@ -849,6 +1211,20 @@ components:
       - amount_xof
       - order_number
       - plan_name
+    RedeemRequestRequest:
+      type: object
+      properties:
+        nas_id:
+          type: string
+          minLength: 1
+          maxLength: 120
+        code:
+          type: string
+          minLength: 1
+          maxLength: 20
+      required:
+      - code
+      - nas_id
     RefreshRequest:
       type: object
       properties:
@@ -857,6 +1233,43 @@ components:
           minLength: 1
       required:
       - refresh
+    Session:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        started_at:
+          type: string
+          format: date-time
+        ended_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        bytes_in:
+          type: integer
+        bytes_out:
+          type: integer
+        site:
+          type: string
+          readOnly: true
+      required:
+      - bytes_in
+      - bytes_out
+      - ended_at
+      - id
+      - site
+      - started_at
+    SessionList:
+      type: object
+      properties:
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Session'
+      required:
+      - sessions
     Site:
       type: object
       properties:
@@ -922,6 +1335,58 @@ components:
       - summary
       - type
       - version
+    Ticket:
+      type: object
+      properties:
+        ticket_number:
+          type: string
+        category:
+          type: string
+        status:
+          type: string
+        opened_at:
+          type: string
+          format: date-time
+      required:
+      - category
+      - opened_at
+      - status
+      - ticket_number
+    TicketExport:
+      type: object
+      properties:
+        ticket_number:
+          type: string
+        category:
+          type: string
+        status:
+          type: string
+        opened_at:
+          type: string
+          format: date-time
+      required:
+      - category
+      - opened_at
+      - status
+      - ticket_number
+    TicketRequestRequest:
+      type: object
+      properties:
+        nas_id:
+          type: string
+          maxLength: 120
+        category:
+          $ref: '#/components/schemas/CategoryEnum'
+        message:
+          type: string
+          minLength: 10
+          maxLength: 2000
+        order_id:
+          type: string
+          format: uuid
+      required:
+      - category
+      - message
     TokenPair:
       type: object
       properties:

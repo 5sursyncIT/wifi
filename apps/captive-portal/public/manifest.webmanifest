@@ -1,0 +1,10 @@
+{
+  "name": "Dakar WiFi",
+  "short_name": "Dakar WiFi",
+  "description": "Accès Wi-Fi public de la Ville de Dakar",
+  "lang": "fr",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#eef2f8",
+  "theme_color": "#004090"
+}

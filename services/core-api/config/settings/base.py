@@ -56,6 +56,9 @@ INSTALLED_APPS = [
     "apps.messaging",
     "apps.access",
     "apps.billing",
+    "apps.promotions",
+    "apps.support",
+    "apps.incidents",
 ]
 
 MIDDLEWARE = [
@@ -224,6 +227,14 @@ OTP_WINDOW_SECONDS = env.int("OTP_WINDOW_SECONDS", default=900)
 OTP_MAX_PER_PHONE = env.int("OTP_MAX_PER_PHONE", default=3)
 OTP_MAX_PER_IP = env.int("OTP_MAX_PER_IP", default=10)
 OTP_MAX_VERIFY_ATTEMPTS = env.int("OTP_MAX_VERIFY_ATTEMPTS", default=5)
+
+# --- Vouchers (cahier des charges §8.6) -------------------------------------
+# Dedicated pepper: a leaked OTP pepper must not unlock the voucher table.
+VOUCHER_HASH_PEPPER = env.str("VOUCHER_HASH_PEPPER", default="change-me")
+VOUCHER_ATTEMPT_WINDOW_SECONDS = env.int("VOUCHER_ATTEMPT_WINDOW_SECONDS", default=900)
+VOUCHER_MAX_ATTEMPTS_PER_CITIZEN = env.int("VOUCHER_MAX_ATTEMPTS_PER_CITIZEN", default=10)
+SUPPORT_TICKET_WINDOW_SECONDS = env.int("SUPPORT_TICKET_WINDOW_SECONDS", default=3600)
+SUPPORT_TICKET_MAX_PER_WINDOW = env.int("SUPPORT_TICKET_MAX_PER_WINDOW", default=5)
 
 PORTAL_ALLOWED_REDIRECT_HOSTS = env.list("PORTAL_ALLOWED_REDIRECT_HOSTS", default=["localhost"])
 

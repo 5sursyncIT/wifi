@@ -17,3 +17,10 @@ def test_openapi_schema_documents_the_health_response_body():
     body = _resolve(schema, content["application/json"]["schema"])
 
     assert set(body["properties"]) == {"status", "environment", "version", "checks"}
+
+
+def test_openapi_schema_documents_voucher_redemption():
+    schema = SchemaGenerator().get_schema(request=None, public=True)
+
+    assert "/api/v1/vouchers/redeem" in schema["paths"]
+    assert "post" in schema["paths"]["/api/v1/vouchers/redeem"]

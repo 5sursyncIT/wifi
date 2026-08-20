@@ -104,9 +104,7 @@ def test_reconcile_skips_expired_active_entitlements(paid_order, monkeypatch):
 
 
 @override_settings(NETWORK_PROVIDER="openwisp")
-def test_reconcile_continues_after_network_error(
-    paid_order, db, zone, plan_version, monkeypatch
-):
+def test_reconcile_continues_after_network_error(paid_order, db, zone, plan_version, monkeypatch):
     from apps.citizens.models import Citizen
 
     first = entitlement_for_order(paid_order, starts_at=timezone.now())

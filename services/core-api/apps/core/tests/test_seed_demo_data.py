@@ -56,3 +56,47 @@ def test_seed_demo_data_creates_no_internal_account_outside_local(settings):
     call_command("seed_demo_data")
 
     assert not get_user_model().objects.filter(username__startswith="demo_").exists()
+
+
+def _role_codenames(role: str) -> set[str]:
+    return set(Group.objects.get(name=role).permissions.values_list("codename", flat=True))
+
+
+@pytest.mark.django_db
+def test_support_cannot_change_prices():
+    call_command("seed_demo_data")
+
+    assert "change_plan" not in _role_codenames("agent_support")
+    assert "view_citizen" in _role_codenames("agent_support")
+    assert "view_supportticket" in _role_codenames("agent_support")
+    assert "change_supportticket" in _role_codenames("agent_support")
+    assert "view_incident" in _role_codenames("agent_support")
+    assert "add_incident" not in _role_codenames("agent_support")
+
+
+@pytest.mark.django_db
+def test_financier_cannot_change_the_network():
+    call_command("seed_demo_data")
+
+    assert "change_hotspot" not in _role_codenames("responsable_financier")
+    assert "change_site" not in _role_codenames("responsable_financier")
+    assert "view_order" in _role_codenames("responsable_financier")
+    assert "view_refund" in _role_codenames("responsable_financier")
+
+
+@pytest.mark.django_db
+def test_a_partner_can_view_campaigns_but_not_citizens():
+    call_command("seed_demo_data")
+
+    assert "view_campaign" in _role_codenames("partenaire")
+    assert "view_citizen" not in _role_codenames("partenaire")
+    assert "view_incident" not in _role_codenames("partenaire")
+
+
+@pytest.mark.django_db
+def test_auditor_can_read_the_audit_log_but_not_change_plans():
+    call_command("seed_demo_data")
+
+    assert "view_auditlog" in _role_codenames("auditeur")
+    assert "change_plan" not in _role_codenames("auditeur")
+    assert "add_plan" not in _role_codenames("auditeur")

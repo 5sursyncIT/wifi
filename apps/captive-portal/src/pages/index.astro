@@ -3,26 +3,17 @@ import Base from "../layouts/Base.astro";
 ---
 
 <Base title="Dakar WiFi">
-  <main class="mx-auto flex min-h-dvh max-w-md flex-col gap-6 px-5 py-8">
-    <header class="flex items-center gap-3">
-      {/* Neutral placeholder: no logo is invented before the City supplies one (§2.2). */}
-      <div
-        class="size-12 shrink-0 rounded-lg bg-[var(--color-brand)]"
-        role="img"
-        aria-label="Emplacement du logo officiel"
-      >
-      </div>
-      <div>
-        <h1 class="text-xl font-bold">Dakar WiFi</h1>
-        <p class="text-sm text-[var(--color-muted)]">Réseau DAKAR-WIFI</p>
-      </div>
+  <main class="mx-auto flex min-h-[calc(100dvh-4.5rem)] max-w-md flex-col gap-5 px-5 py-6" data-i18n-title="brand">
+    <header>
+      <h1 class="text-2xl font-bold tracking-tight" data-i18n="brand">Dakar WiFi</h1>
+      <p class="mt-0.5 text-sm text-muted" data-i18n="network_name">Réseau DAKAR-WIFI</p>
     </header>
 
     <div id="portal" aria-live="polite">
-      <p class="text-[var(--color-muted)]">Chargement des offres…</p>
+      <p class="text-muted" data-i18n="loading_offers">Chargement des offres…</p>
     </div>
 
-    <footer class="mt-auto text-xs text-[var(--color-muted)]">
+    <footer class="mt-auto pb-2 text-xs text-muted" data-i18n="footer_dev">
       Ville de Dakar — plateforme en cours de développement
     </footer>
   </main>

@@ -1,13 +1,16 @@
 @import "tailwindcss";
 
-/* Placeholder identity. Replaced by the City's official assets without code change
-   (cahier des charges §2.2): only these tokens need to move. */
+/* Official Ville de Dakar identity. Tokens only — swap files in /public to rebrand (§2.2).
+   Colors sampled from the coat of arms (bleu, or, rouge phare, vert laurier). */
 @theme {
-  --color-brand: #0b6b5b;
-  --color-brand-dark: #084c41;
-  --color-surface: #ffffff;
-  --color-ink: #14201d;
-  --color-muted: #4a5c58;
+  --color-brand: #004090;
+  --color-brand-dark: #002d66;
+  --color-gold: #e8d20c;
+  --color-danger: #c8101e;
+  --color-ok: #157a38;
+  --color-surface: #eef2f8;
+  --color-ink: #1c2838;
+  --color-muted: #4d5d70;
 }
 
 body {
@@ -20,4 +23,41 @@ body {
     "Segoe UI",
     Roboto,
     sans-serif;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-brand) 28%, white);
+  color: var(--color-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 3px;
+}
+
+.civic-ribbon {
+  display: flex;
+  height: 6px;
+}
+
+.civic-ribbon span {
+  flex: 1;
+}
+
+.panel-info {
+  border: 2px solid color-mix(in srgb, var(--color-gold) 70%, var(--color-ink));
+  background: color-mix(in srgb, var(--color-gold) 22%, white);
+  color: var(--color-ink);
+}
+
+.panel-ok {
+  border: 2px solid var(--color-brand);
+  background: color-mix(in srgb, var(--color-brand) 8%, white);
+  color: var(--color-ink);
+}
+
+.panel-error {
+  border: 2px solid var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 8%, white);
+  color: #6b0a12;
 }

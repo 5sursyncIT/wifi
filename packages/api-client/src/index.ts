@@ -4,7 +4,7 @@
  * Types come from `src/schema.d.ts`, generated from `docs/api/openapi.yaml`.
  * Never edit the generated file by hand: run `pnpm api-client:generate`.
  */
-import type { paths } from "./schema";
+import type { components, paths } from "./schema";
 
 type Json<T> = T extends { content: { "application/json": infer B } } ? B : never;
 
@@ -17,6 +17,10 @@ export type TokenPair = Json<paths["/api/v1/auth/otp/verify"]["post"]["responses
 export type Terms = Json<paths["/api/v1/portal/terms"]["get"]["responses"]["200"]>;
 export type Entitlement = Json<paths["/api/v1/portal/free-access"]["post"]["responses"]["201"]>;
 export type Entitlements = Json<paths["/api/v1/me/entitlements"]["get"]["responses"]["200"]>;
+export type AccountExport = Json<paths["/api/v1/me/export"]["get"]["responses"]["200"]>;
+export type Sessions = Json<paths["/api/v1/me/sessions"]["get"]["responses"]["200"]>;
+export type Ticket = Json<paths["/api/v1/support/tickets"]["post"]["responses"]["201"]>;
+export type TicketCategory = components["schemas"]["CategoryEnum"];
 export type Order = Json<paths["/api/v1/orders"]["post"]["responses"]["201"]>;
 export type Receipt = Json<paths["/api/v1/orders/{order_id}/receipt"]["get"]["responses"]["200"]>;
 
@@ -85,7 +89,11 @@ export function createApiClient({ baseUrl, fetchImpl = fetch }: ApiClientOptions
     }
     if (!response.ok) {
       const error = body as ApiErrorBody;
-      throw new ApiError(error?.message ?? `Request to ${path} failed`, response.status, error?.code);
+      throw new ApiError(
+        error?.message ?? `Request to ${path} failed`,
+        response.status,
+        error?.code,
+      );
     }
     return body;
   };
@@ -103,13 +111,13 @@ export function createApiClient({ baseUrl, fetchImpl = fetch }: ApiClientOptions
      * Portal context for a hotspot. The zone is resolved server-side from
      * `nasId`; anything else the browser might claim is ignored (§8.2).
      */
-    portalContext: (nasId: string, redirectUrl?: string) =>
+    portalContext: (nasId: string, redirectUrl?: string, lang?: string) =>
       request<PortalContext>("/api/v1/portal/context", {
-        query: { nas_id: nasId, redirect_url: redirectUrl ?? "" },
+        query: { nas_id: nasId, redirect_url: redirectUrl ?? "", lang: lang ?? "" },
       }),
 
-    portalPlans: (nasId: string) =>
-      request<PortalPlans>("/api/v1/portal/plans", { query: { nas_id: nasId } }),
+    portalPlans: (nasId: string, lang?: string) =>
+      request<PortalPlans>("/api/v1/portal/plans", { query: { nas_id: nasId, lang: lang ?? "" } }),
 
     /** Public map of access points. Carries no equipment identifier. */
     publicHotspots: () => request<PublicSites>("/api/v1/public/hotspots"),
@@ -118,8 +126,7 @@ export function createApiClient({ baseUrl, fetchImpl = fetch }: ApiClientOptions
     terms: () => request<Terms>("/api/v1/portal/terms"),
 
     /** Ask for a code. Always answers the same way, known number or not. */
-    requestOtp: (phone: string) =>
-      request<void>("/api/v1/auth/otp/request", { body: { phone } }),
+    requestOtp: (phone: string) => request<void>("/api/v1/auth/otp/request", { body: { phone } }),
 
     /** Verify the code and open a session, recording the accepted terms. */
     verifyOtp: (phone: string, code: string, acceptedTerms: string[]) =>
@@ -144,10 +151,33 @@ export function createApiClient({ baseUrl, fetchImpl = fetch }: ApiClientOptions
     /** Status of an order, for the push wait screen. */
     getOrder: (orderId: string) => request<Order>(`/api/v1/orders/${orderId}`),
 
-    getReceipt: (orderId: string) =>
-      request<Receipt>(`/api/v1/orders/${orderId}/receipt`),
+    getReceipt: (orderId: string) => request<Receipt>(`/api/v1/orders/${orderId}/receipt`),
 
     myEntitlements: () => request<Entitlements>("/api/v1/me/entitlements"),
+
+    mySessions: () => request<Sessions>("/api/v1/me/sessions"),
+
+    disconnectSession: (sessionId: string) =>
+      request<void>(`/api/v1/me/sessions/${sessionId}/disconnect`, { method: "POST" }),
+
+    /** Personal data export (§8.1). */
+    exportAccount: () => request<AccountExport>("/api/v1/me/export"),
+
+    /** Anonymise the account. Financial rows are kept. */
+    deleteAccount: () => request<void>("/api/v1/me/deletion", { method: "POST" }),
+
+    /** Open a support ticket. The token is optional. */
+    createTicket: (nasId: string, category: TicketCategory, message: string) =>
+      request<Ticket>("/api/v1/support/tickets", {
+        body: { nas_id: nasId, category, message },
+      }),
+
+    /** Redeem a hashed voucher for the zone resolved from `nasId` (§8.6). */
+    redeemVoucher: (nasId: string, code: string, idempotencyKey: string) =>
+      request<Entitlement>("/api/v1/vouchers/redeem", {
+        body: { nas_id: nasId, code },
+        headers: { "Idempotency-Key": idempotencyKey },
+      }),
   };
 }
 

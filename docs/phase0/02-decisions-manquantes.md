@@ -22,7 +22,7 @@ Trois catégories : tranchées (ADR), à trancher pour la Phase 1, à trancher p
 | D5 | Générateur client TS depuis OpenAPI | openapi-typescript + fetch wrapper maison (léger) |
 | D6 | CI | GitHub Actions — **confirmé** (dépôt : github.com/5sursyncIT/wifi) |
 | D7 | Cartographie | MapLibre GL ou Leaflet + OSM ; **Leaflet proposé** (plus léger, suffisant) |
-| D8 | Bibliothèque i18n portail | next-intl |
+| D8 | Bibliothèque i18n portail | **Tranché** : dictionnaire maison (FR/WO/EN), pas next-intl — le portail est Astro (ADR-0005) |
 
 ## 3. À trancher plus tard (bloquantes pour la production, pas pour le développement)
 

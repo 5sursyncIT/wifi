@@ -5,6 +5,7 @@ the network layer has confirmed it. A right that says "active" while RADIUS know
 nothing about it is worse than a refusal: the citizen sees success and gets nothing.
 """
 
+import hashlib
 import logging
 from datetime import timedelta
 
@@ -14,7 +15,9 @@ from django.utils import timezone
 from apps.access.models import Entitlement, ZoneFreePolicy
 from apps.access.providers import get_network_provider
 from apps.access.providers.base import NetworkError
+from apps.access.sessions import record_open_session
 from apps.catalog.models import Plan
+from apps.citizens.models import CitizenDevice
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +84,32 @@ def _in_cooldown(citizen, zone, policy, moment) -> bool:
     ).exists()
 
 
-def grant_free_access(citizen, zone, device_hint: str = "") -> Entitlement:
+def _hash_device_hint(device_hint: str) -> str:
+    return hashlib.sha256(device_hint.strip().lower().encode()).hexdigest()
+
+
+def _enforce_device_limit(citizen, policy, device_hint: str) -> None:
+    """Refuse a new device once the zone's max_devices is reached (§8.4).
+
+    Without a hint the gateway has not identified the client yet, so the check
+    is skipped rather than locking every unknown MAC out of the allowance.
+    """
+    if not device_hint or policy.max_devices <= 0:
+        return
+    digest = _hash_device_hint(device_hint)
+    existing = citizen.devices.filter(mac_hash=digest).first()
+    if existing is not None:
+        CitizenDevice.objects.filter(pk=existing.pk).update(last_seen_at=timezone.now())
+        return
+    if citizen.devices.count() >= policy.max_devices:
+        raise FreeAccessRefused(
+            "too_many_devices",
+            "Le nombre maximal d'appareils pour l'accès gratuit est atteint.",
+        )
+    CitizenDevice.objects.create(citizen=citizen, mac_hash=digest)
+
+
+def grant_free_access(citizen, zone, device_hint: str = "", *, hotspot=None) -> Entitlement:
     now = timezone.now()
 
     if not citizen.is_usable:
@@ -104,6 +132,8 @@ def grant_free_access(citizen, zone, device_hint: str = "") -> Entitlement:
 
     if _in_cooldown(citizen, zone, policy, now):
         raise FreeAccessRefused("cooldown", "Vous avez déjà utilisé l'accès gratuit récemment.")
+
+    _enforce_device_limit(citizen, policy, device_hint)
 
     version = plan.current_version
     duration = version.connection_seconds or policy.daily_seconds
@@ -138,4 +168,5 @@ def grant_free_access(citizen, zone, device_hint: str = "") -> Entitlement:
     entitlement.radius_username = subscriber_ref
     entitlement.radius_synced_at = timezone.now()
     entitlement.save(update_fields=["status", "radius_username", "radius_synced_at"])
+    record_open_session(entitlement=entitlement, hotspot=hotspot)
     return entitlement

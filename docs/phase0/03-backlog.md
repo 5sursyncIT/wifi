@@ -29,12 +29,17 @@ Le détail fin (sous-tâches) sera tenu dans l'outil de suivi une fois choisi.
 | DW-P2-05 | UI portail : accueil zone, catalogue des offres, mode repli hotspot mal configuré | livré |
 | DW-P2-06 | Back-office : configuration par l'admin Django ; écrans Next.js dédiés | **partiel** |
 | DW-P2-07 | Carte Leaflet/OSM avec clustering et filtre par mode d'accès (§8.9) | livré |
+| DW-P2-08 | Incidents réseau : ouverture auto hors-ligne/dégradé, cycle, SLA (§8.10) | livré (lite) |
+| DW-P2-09 | i18n portail : français, wolof, anglais (règle 16, ADR-0003) | livré |
 
 **DW-P2-06 — ce qui reste.** La configuration complète (sites, zones, bornes, offres,
-versions) se fait dans l'administration Django, avec les versions d'offre en lecture
-seule pour respecter le §8.3. Le back-office Next.js n'expose à ce stade que la carte
-et la liste des sites. Les écrans de configuration dédiés et les rôles fins (§7)
-restent à livrer ; ils dépendent de l'authentification interne, prévue en phase 3.
+versions, incidents) se fait dans l'administration Django. Le back-office Next.js
+expose la carte, la liste des sites et le nombre d'incidents ouverts. Les écrans
+de configuration dédiés restent à livrer.
+
+**DW-P2-09.** Le portail captive sert le français par défaut (référence fonctionnelle).
+Un sélecteur FR / WO / EN bascule l'interface ; le wolof reste court (règle 16).
+Pas de `next-intl` : dictionnaire maison, pour tenir le budget JS Astro (ADR-0005).
 
 ## Phase 3 — Comptes, OTP et accès gratuit
 
@@ -47,11 +52,14 @@ restent à livrer ; ils dépendent de l'authentification interne, prévue en pha
 | DW-P3-05 | Entitlement gratuit + règles de quota par zone (§8.4) | livré |
 | DW-P3-06 | `MockNetworkProvider` avec les 7 scénarios du §11.3, `assign_plan()` et `disconnect()` | livré |
 | DW-P3-07 | E2E Playwright : parcours gratuit complet (critères 1-3 du §17) | livré |
+| DW-P3-08 | Export JSON et suppression (anonymisation) du compte (§8.1) | livré |
+| DW-P3-09 | `SupportTicket` + `POST /api/v1/support/tickets` + formulaire portail (§8.12) | livré |
+| DW-P3-10 | `NetworkSession` locale + `GET /me/sessions` + déconnexion (§8.8, §10.1) | livré (lite) |
 
-**Reste ouvert.** Les appareils (`CitizenDevice`) sont modélisés mais pas encore
-alimentés : la MAC du client n'est pas transmise par le portail tant que la passerelle
-n'est pas en place (phase 5). La limite `max_devices` du §8.4 n'est donc pas encore
-appliquée. L'export et la suppression de compte du §8.1 restent à livrer.
+**Reste ouvert.** Les appareils (`CitizenDevice`) sont modélisés ; la limite
+`max_devices` s'applique lorsque le portail transmet un `device_hint`. La MAC
+du client n'est pas encore fournie par la passerelle. L'import accounting RADIUS
+(octets réels, anti double comptage) reste DW-P5-04.
 
 ## Phase 4 — Commandes, paiement mock et abonnements
 
@@ -72,7 +80,7 @@ appliquée. L'export et la suppression de compte du §8.1 restent à livrer.
 | DW-P5-01 | Instance OpenWISP staging documentée (Ansible) ; configurer `freeradius_allowed_hosts` et `coa_enabled` | reporté, hors itération adapter-docker |
 | DW-P5-02 | OpenWispClient (adaptateur §11) + gestion erreurs/retries/circuit breaker | livré |
 | DW-P5-03 | Sync utilisateurs/profils RADIUS + réconciliation nocturne ; groupes RADIUS pré-provisionnés référencés par `PlanVersion.radius_profile_ref` | livré (lite) |
-| DW-P5-04 | Import accounting sans double comptage (§8.8) | reporté, hors itération adapter-docker |
+| DW-P5-04 | Import accounting sans double comptage (§8.8) | reporté, hors itération adapter-docker ; sessions locales + disconnect API livrés (DW-P3-10) |
 | DW-P5-05 | CoA si supporté + test hotspot de laboratoire | reporté, hors itération adapter-docker |
 
 - **DW-P5-00 — validation du laboratoire.** Les imports des tests de l'extension
@@ -86,12 +94,12 @@ appliquée. L'export et la suppression de compte du §8.1 restent à livrer.
 
 ## Phase 6 — Vouchers, sponsors et finance
 
-| ID | Item |
-|---|---|
-| DW-P6-01 | VoucherBatch/Voucher hachés + redemption + révocation (§8.6) |
-| DW-P6-02 | Sponsor/Campaign + vue partenaire restreinte (§8.11) |
-| DW-P6-03 | Rapprochement financier + Refund + exports audités (§8.13) |
-| DW-P6-04 | Tableaux de bord technique/usage/finance (§8.13) |
+| ID | Item | État |
+|---|---|---|
+| DW-P6-01 | VoucherBatch/Voucher hachés + redemption + révocation (§8.6) | livré |
+| DW-P6-02 | Sponsor/Campaign + vue partenaire restreinte (§8.11) | livré |
+| DW-P6-03 | Rapprochement financier + Refund + exports audités (§8.13) | livré |
+| DW-P6-04 | Tableaux de bord technique/usage/finance (§8.13) | **lite** (listes admin + CSV, pas de graphiques) |
 
 Les phases 7 (connecteurs réels) et 8 (durcissement, pilote terrain) seront détaillées
 quand les contrats et accès sandbox seront connus (§18).

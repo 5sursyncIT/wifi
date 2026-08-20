@@ -1,6 +1,7 @@
 COMPOSE := docker compose -f infra/compose/docker-compose.yml
 API := uv run --directory services/core-api
-MANAGE := ENVIRONMENT=local $(API) python manage.py
+ENVIRONMENT ?= local
+MANAGE := ENVIRONMENT=$(ENVIRONMENT) $(API) python manage.py
 OPENWISP_DIR := infra/docker-openwisp
 OPENWISP_TAG := 25.10.4
 OPENWISP_COMPOSE := docker compose -f $(OPENWISP_DIR)/docker-compose.yml --env-file infra/openwisp/.env
@@ -44,6 +45,10 @@ makemigrations: ## Génère les migrations
 	$(MANAGE) makemigrations
 
 seed: ## Charge les données de démonstration (refusé en production)
+	@if [ "$(ENVIRONMENT)" = "production" ]; then \
+	  echo "Refusing to seed demonstration data in production (cahier des charges §1 rule 18)."; \
+	  exit 1; \
+	fi
 	$(MANAGE) seed_demo_data
 
 superuser: ## Crée un compte administrateur Django
@@ -107,4 +112,8 @@ test-openwisp: openwisp-up ## Tests d'extension + smoke HTTP (pas CI)
 	OPENWISP_VERSION=$(OPENWISP_TAG) $(OPENWISP_COMPOSE) exec -T api python manage.py test openwisp.configuration.dakar_radius_ext
 
 clean: ## Supprime les services et les volumes (données locales perdues)
+	@if [ "$(ENVIRONMENT)" = "production" ]; then \
+	  echo "Refusing destructive command in production (cahier des charges §1 rule 18)."; \
+	  exit 1; \
+	fi
 	$(COMPOSE) down -v

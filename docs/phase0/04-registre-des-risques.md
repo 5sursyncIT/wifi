@@ -19,7 +19,7 @@ Reprend le §23 du cahier des charges, avec suivi opérationnel.
 | R09 | Coût SMS/OTP non maîtrisé | M | M | Budget alloué (§22.16), suivi `SmsMessage`, seuil d'alerte | Ouvert — budget inconnu |
 | R10 | Rétention légale vs minimisation non arbitrée | M | É | Arbitrage juridique documenté avant production (§13.3) | Ouvert — bloquant production |
 | R11 | Saturation bande passante des sites | M | M | QoS, quotas, supervision, dimensionnement par site | Ouvert — phase 8 |
-| R12 | Perte de connectivité centrale | M | M | VPN supervisé ; période de grâce = point d'étude (ADR à venir) | Ouvert — étude avant P5 |
+| R12 | Perte de connectivité centrale | M | M | Pas de grâce promise hors capacités NAS/RADIUS ; [ADR-0008](../adr/0008-periode-de-grace-panne-centrale.md) | Ouvert — essai borne réelle (DW-P5-05) |
 | R13 | Collecte excessive de données | F | É | Minimisation, pseudonymisation, validation CDP | Couvert par conception |
 | R14 | Coût d'exploitation sous-estimé | M | M | Pilote mesuré, indicateurs de coût, extension progressive | Ouvert — phase 8 |
 | R15 | Mise à jour OpenWISP difficile | F | M | Pas de fork, adaptateur versionné, staging | Couvert par ADR-0001 |

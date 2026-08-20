@@ -15,6 +15,10 @@ PROTECTED = [
     ("/api/v1/auth/logout", "post"),
     ("/api/v1/me", "get"),
     ("/api/v1/me/entitlements", "get"),
+    ("/api/v1/me/export", "get"),
+    ("/api/v1/me/deletion", "post"),
+    ("/api/v1/me/sessions", "get"),
+    ("/api/v1/me/sessions/{session_id}/disconnect", "post"),
     ("/api/v1/portal/free-access", "post"),
     ("/api/v1/orders", "post"),
     ("/api/v1/orders/{order_id}", "get"),
@@ -27,6 +31,7 @@ PUBLIC = [
     ("/api/v1/auth/otp/verify", "post"),
     ("/api/v1/portal/terms", "get"),
     ("/api/v1/webhooks/payments/{provider}", "post"),
+    ("/api/v1/support/tickets", "post"),
 ]
 
 

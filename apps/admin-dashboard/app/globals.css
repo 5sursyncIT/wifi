@@ -1,9 +1,13 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand: #0b6b5b;
-  --color-surface: #f7f8f8;
-  --color-ink: #14201d;
+  --color-brand: #004090;
+  --color-brand-dark: #002d66;
+  --color-gold: #e8d20c;
+  --color-danger: #c8101e;
+  --color-surface: #eef2f8;
+  --color-ink: #1c2838;
+  --color-muted: #4d5d70;
 }
 
 body {
@@ -15,4 +19,13 @@ body {
     "Segoe UI",
     Roboto,
     sans-serif;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-brand) 28%, white);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 3px;
 }

@@ -76,9 +76,10 @@ def test_a_webhook_parses_into_the_shared_payload(order):
     assert payload.payee == MockPaymentProvider.expected_payee
 
 
-def test_refund_is_declared_but_not_simulated(order):
-    # The contract carries refund() because §8.5 requires it, but simulating a refund
-    # whose authorisation and audit rules do not exist yet would fake coverage on the
-    # one irreversible gesture of the chain.
-    with pytest.raises(NotImplementedError):
-        get_payment_provider().refund(None, 500)
+def test_refund_returns_a_succeeded_result(order):
+    payment = type("P", (), {"external_reference": "MOCK-1"})()
+    result = get_payment_provider().refund(payment, 500)
+
+    assert result.status == "succeeded"
+    assert result.amount_xof == 500
+    assert result.external_reference.startswith("REF-")

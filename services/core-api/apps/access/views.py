@@ -45,7 +45,7 @@ def claim_free_access(request: Request) -> Response:
         )
 
     try:
-        entitlement = grant_free_access(citizen_of(request), context.zone)
+        entitlement = grant_free_access(citizen_of(request), context.zone, hotspot=context.hotspot)
     except FreeAccessRefused as error:
         return _error(request, error.reason, error.message, status.HTTP_400_BAD_REQUEST)
 

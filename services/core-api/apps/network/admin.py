@@ -1,13 +1,15 @@
 from django.contrib import admin
 
+from apps.core.admin import AuditedModelAdmin
 from apps.network.models import Hotspot, Organization, Site, Zone
 
 
 @admin.register(Organization)
-class OrganizationAdmin(admin.ModelAdmin):
+class OrganizationAdmin(AuditedModelAdmin):
     list_display = ["name", "type", "status", "site_count"]
     list_filter = ["type", "status"]
     search_fields = ["name"]
+    fields = ["name", "type", "status", "openwisp_org_slug", "i18n"]
 
     @admin.display(description="Sites")
     def site_count(self, obj):
@@ -22,11 +24,23 @@ class ZoneInline(admin.TabularInline):
 
 
 @admin.register(Site)
-class SiteAdmin(admin.ModelAdmin):
+class SiteAdmin(AuditedModelAdmin):
     list_display = ["name", "organization", "status", "is_public", "has_coordinates"]
     list_filter = ["status", "is_public", "organization"]
     search_fields = ["name", "address"]
     inlines = [ZoneInline]
+    fields = [
+        "organization",
+        "name",
+        "address",
+        "latitude",
+        "longitude",
+        "status",
+        "is_public",
+        "internet_provider",
+        "escalation_contact",
+        "i18n",
+    ]
 
     @admin.display(boolean=True, description="Géolocalisé")
     def has_coordinates(self, obj):
@@ -41,11 +55,21 @@ class HotspotInline(admin.TabularInline):
 
 
 @admin.register(Zone)
-class ZoneAdmin(admin.ModelAdmin):
+class ZoneAdmin(AuditedModelAdmin):
     list_display = ["code", "label", "site", "access_mode", "status", "hotspot_count"]
     list_filter = ["access_mode", "status", "site__organization"]
     search_fields = ["code", "label"]
     inlines = [HotspotInline]
+    fields = [
+        "site",
+        "code",
+        "label",
+        "access_mode",
+        "status",
+        "timezone",
+        "welcome_message",
+        "i18n",
+    ]
 
     @admin.display(description="Bornes")
     def hotspot_count(self, obj):
@@ -53,7 +77,7 @@ class ZoneAdmin(admin.ModelAdmin):
 
 
 @admin.register(Hotspot)
-class HotspotAdmin(admin.ModelAdmin):
+class HotspotAdmin(AuditedModelAdmin):
     list_display = ["nas_identifier", "label", "zone", "status", "provider", "vendor"]
     list_filter = ["status", "provider", "zone__site__organization"]
     search_fields = ["nas_identifier", "label", "external_id"]

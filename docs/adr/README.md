@@ -28,3 +28,4 @@ Une décision remplacée n'est pas supprimée : son statut passe à « Remplacé
 | [0005](0005-budget-portail-captif.md) | Budget JavaScript du portail captif — portail sur Astro | Acceptée |
 | [0006](0006-integration-openwisp.md) | Frontière d'intégration OpenWISP — extension plutôt que fork | Acceptée |
 | [0007](0007-comptes-citoyens-et-otp.md) | Comptes citoyens séparés et OTP sous maîtrise de la plateforme | Acceptée |
+| [0008](0008-periode-de-grace-panne-centrale.md) | Période de grâce en cas de panne du système central | Acceptée |

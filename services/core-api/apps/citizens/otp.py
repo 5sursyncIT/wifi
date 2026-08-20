@@ -170,7 +170,7 @@ def verify_otp(phone_e164, code, accepted_terms=None):
 @transaction.atomic
 def _activate(phone_e164, required_versions, now):
     citizen, _ = Citizen.objects.get_or_create(phone_e164=phone_e164)
-    if citizen.status == Citizen.Status.BLOCKED:
+    if citizen.status in (Citizen.Status.BLOCKED, Citizen.Status.DELETED):
         raise InvalidCode("Ce compte est bloqué.")
 
     citizen.status = Citizen.Status.ACTIVE

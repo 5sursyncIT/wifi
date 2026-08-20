@@ -14,11 +14,89 @@ const { title } = Astro.props;
     <meta charset="utf-8" />
     <!-- maximum-scale left open: captive mini-browsers must still allow zooming. -->
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#0b6b5b" />
+    <meta name="theme-color" content="#004090" />
     <meta name="description" content="Accès Wi-Fi public de la Ville de Dakar" />
+    <link rel="icon" href="/armoiries-ville-dakar.png" type="image/png" />
+    <link rel="apple-touch-icon" href="/armoiries-ville-dakar.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <title>{title}</title>
   </head>
   <body class="min-h-dvh antialiased">
+    <!--
+      THESIS: A municipal gateway, not a private app: the arms of Dakar greet you before any offer.
+      OWN-WORLD: Civic ribbon (blue/gold/red from the shield), cool paper ground, navy actions, official lockup.
+      STORY: This Wi-Fi belongs to the City; choose a plan and get online in three screens.
+      FIRST VIEWPORT: Ribbon, lockup + language, product name, then the zone's offers as the primary action.
+      FORM: Official identity of the Ville de Dakar (mairiedakar.sn), Operate mode, outdoor sunlight.
+      FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+    -->
+    <div class="civic-ribbon" aria-hidden="true">
+      <span class="bg-brand"></span>
+      <span class="bg-gold"></span>
+      <span class="bg-danger"></span>
+    </div>
+
+    <div class="mx-auto flex max-w-md items-center justify-between gap-3 px-5 pt-4">
+      <img
+        src="/logo-ville-dakar.png"
+        alt="Ville de Dakar"
+        width="200"
+        height="88"
+        class="h-11 w-auto"
+        data-i18n-aria="logo_alt"
+      />
+      <nav class="flex shrink-0 items-center gap-0.5 text-xs" aria-label="Langue" data-i18n-aria="language">
+        <a
+          class="rounded px-2 py-1 font-bold text-muted aria-[current=true]:bg-brand aria-[current=true]:text-white"
+          href="?lang=fr"
+          hreflang="fr"
+          data-lang="fr"
+        >
+          FR
+        </a>
+        <a
+          class="rounded px-2 py-1 font-bold text-muted aria-[current=true]:bg-brand aria-[current=true]:text-white"
+          href="?lang=wo"
+          hreflang="wo"
+          data-lang="wo"
+        >
+          WO
+        </a>
+        <a
+          class="rounded px-2 py-1 font-bold text-muted aria-[current=true]:bg-brand aria-[current=true]:text-white"
+          href="?lang=en"
+          hreflang="en"
+          data-lang="en"
+        >
+          EN
+        </a>
+      </nav>
+    </div>
     <slot />
   </body>
 </html>
+
+<script>
+  import {
+    applyTranslations,
+    languageHref,
+    localeFromWindow,
+    persistLocale,
+    type Locale,
+  } from "../lib/i18n";
+
+  const current = localeFromWindow(window);
+  persistLocale(current);
+  applyTranslations(document, current);
+
+  for (const link of document.querySelectorAll<HTMLAnchorElement>("a[data-lang]")) {
+    const lang = link.dataset.lang as Locale;
+    link.href = languageHref(window.location.search, lang);
+    if (lang === current) {
+      link.setAttribute("aria-current", "true");
+    } else {
+      link.removeAttribute("aria-current");
+    }
+    link.addEventListener("click", () => persistLocale(lang));
+  }
+</script>

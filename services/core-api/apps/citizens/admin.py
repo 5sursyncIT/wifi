@@ -8,10 +8,11 @@ from apps.citizens.models import (
     RefreshToken,
     TermsVersion,
 )
+from apps.core.admin import AuditedModelAdmin
 
 
 @admin.register(Citizen)
-class CitizenAdmin(admin.ModelAdmin):
+class CitizenAdmin(AuditedModelAdmin):
     # Lists show masked numbers: a support agent browsing accounts has no business
     # reading a full directory of citizens (§13.3).
     list_display = ["masked_phone", "status", "preferred_language", "verified_at"]

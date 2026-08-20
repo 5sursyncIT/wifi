@@ -7,6 +7,9 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from apps.access.models import NetworkSession
+from apps.access.sessions import SessionDisconnectFailed, SessionNotFound, disconnect_session
+from apps.citizens.account import delete_account, export_account
 from apps.citizens.authentication import CitizenTokenAuthentication, citizen_of
 from apps.citizens.otp import (
     ConsentRequired,
@@ -18,11 +21,13 @@ from apps.citizens.otp import (
     verify_otp,
 )
 from apps.citizens.serializers import (
+    AccountExportSerializer,
     CitizenSerializer,
     EntitlementListSerializer,
     OtpRequestSerializer,
     OtpVerifySerializer,
     RefreshSerializer,
+    SessionListSerializer,
     TermsListSerializer,
     TokenPairSerializer,
 )
@@ -170,6 +175,87 @@ def my_entitlements(request: Request) -> Response:
         .order_by("-created_at")[:50]
     )
     return Response(EntitlementListSerializer({"entitlements": entitlements}).data)
+
+
+@extend_schema(
+    responses={200: AccountExportSerializer},
+    summary="Exporter les données du compte",
+    tags=["compte"],
+)
+@api_view(["GET"])
+@citizen_auth
+@permission_classes([IsAuthenticated])
+def me_export(request: Request) -> Response:
+    payload = export_account(citizen_of(request))
+    response = Response(AccountExportSerializer(payload).data)
+    response["Content-Disposition"] = 'attachment; filename="dakar-wifi-export.json"'
+    return response
+
+
+@extend_schema(
+    request=None,
+    responses={204: None},
+    summary="Supprimer le compte (anonymisation)",
+    tags=["compte"],
+)
+@api_view(["POST"])
+@citizen_auth
+@permission_classes([IsAuthenticated])
+def me_deletion(request: Request) -> Response:
+    delete_account(citizen_of(request))
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@extend_schema(
+    responses={200: SessionListSerializer},
+    summary="Sessions réseau du citoyen connecté",
+    tags=["compte"],
+)
+@api_view(["GET"])
+@citizen_auth
+@permission_classes([IsAuthenticated])
+def my_sessions(request: Request) -> Response:
+    sessions = (
+        citizen_of(request)
+        .network_sessions.select_related("hotspot__zone__site")
+        .order_by("-start_at")[:50]
+    )
+    return Response(SessionListSerializer({"sessions": sessions}).data)
+
+
+@extend_schema(
+    request=None,
+    responses={204: None, 404: ErrorSerializer, 503: ErrorSerializer},
+    summary="Forcer la déconnexion d'une session",
+    tags=["compte"],
+)
+@api_view(["POST"])
+@citizen_auth
+@permission_classes([IsAuthenticated])
+def disconnect_my_session(request: Request, session_id) -> Response:
+    session = NetworkSession.objects.filter(pk=session_id).first()
+    if session is None:
+        return _error(
+            request,
+            "session_not_found",
+            "Cette session n'existe pas.",
+            status.HTTP_404_NOT_FOUND,
+        )
+    try:
+        disconnect_session(session, citizen=citizen_of(request))
+    except SessionNotFound:
+        return _error(
+            request,
+            "session_not_found",
+            "Cette session n'existe pas.",
+            status.HTTP_404_NOT_FOUND,
+        )
+    except SessionDisconnectFailed as error:
+        http_status = (
+            status.HTTP_503_SERVICE_UNAVAILABLE if error.retryable else status.HTTP_400_BAD_REQUEST
+        )
+        return _error(request, "disconnect_failed", str(error), http_status)
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 @extend_schema(

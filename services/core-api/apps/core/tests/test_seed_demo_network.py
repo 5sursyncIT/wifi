@@ -32,6 +32,14 @@ def test_seed_creates_one_hotspot_per_zone(seeded):
     assert Hotspot.objects.count() == Zone.objects.count()
 
 
+def test_seed_fills_english_and_wolof_catalog_copy(seeded):
+    plan = Plan.objects.get(code="gratuit")
+    assert plan.i18n["en"]["name"] == "Free access"
+    assert plan.i18n["wo"]["name"] == "Jàpp ci neen"
+    zone = Zone.objects.get(code="demo-independance")
+    assert zone.i18n["en"]["welcome_message"].startswith("Welcome")
+
+
 def test_seed_creates_the_five_offers_with_a_current_version(seeded):
     plans = Plan.objects.all()
     assert {plan.code for plan in plans} == {

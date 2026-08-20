@@ -30,9 +30,7 @@ def test_replaying_activation_after_a_crash_does_not_reassign(paid_order):
     entitlement = entitlement_for_order(paid_order, starts_at=timezone.now())
 
     respx.get(USERS).mock(
-        return_value=httpx.Response(
-            200, json={"results": [{"id": "u1", "username": username}]}
-        )
+        return_value=httpx.Response(200, json={"results": [{"id": "u1", "username": username}]})
     )
     assign = respx.post(ASSIGN)
     assign.side_effect = [

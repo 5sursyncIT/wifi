@@ -12,10 +12,17 @@ const ACCESS_MODE_LABEL: Record<string, string> = {
   hybrid: "Hybride",
 };
 
-type State =
-  | { kind: "loading" }
-  | { kind: "ready"; sites: PublicSite[] }
-  | { kind: "error" };
+const STATUS_LABEL: Record<string, string> = {
+  planned: "Planifié",
+  installing: "En installation",
+  active: "Actif",
+  degraded: "Dégradé",
+  down: "Hors service",
+  maintenance: "Maintenance",
+  retired: "Retiré",
+};
+
+type State = { kind: "loading" } | { kind: "ready"; sites: PublicSite[] } | { kind: "error" };
 
 export function SitesView({ apiBaseUrl }: { apiBaseUrl: string }) {
   const [state, setState] = useState<State>({ kind: "loading" });
@@ -49,7 +56,9 @@ export function SitesView({ apiBaseUrl }: { apiBaseUrl: string }) {
 
   if (state.kind === "loading") return <p>Chargement des sites…</p>;
   if (state.kind === "error") {
-    return <p className="font-medium text-red-700">API injoignable. Vérifiez qu’elle est démarrée.</p>;
+    return (
+      <p className="font-medium text-danger">API injoignable. Vérifiez qu’elle est démarrée.</p>
+    );
   }
 
   return (
@@ -80,11 +89,24 @@ export function SitesView({ apiBaseUrl }: { apiBaseUrl: string }) {
           <caption className="sr-only">Sites Wi-Fi publiés</caption>
           <thead className="border-b border-black/10 text-left">
             <tr>
-              <th scope="col" className="p-3">Site</th>
-              <th scope="col" className="p-3">Adresse</th>
-              <th scope="col" className="p-3">Modes</th>
-              <th scope="col" className="p-3">Bornes</th>
-              <th scope="col" className="p-3">État</th>
+              <th scope="col" className="p-3">
+                Site
+              </th>
+              <th scope="col" className="p-3">
+                Adresse
+              </th>
+              <th scope="col" className="p-3">
+                Modes
+              </th>
+              <th scope="col" className="p-3">
+                Bornes
+              </th>
+              <th scope="col" className="p-3">
+                Incidents
+              </th>
+              <th scope="col" className="p-3">
+                État
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -96,7 +118,8 @@ export function SitesView({ apiBaseUrl }: { apiBaseUrl: string }) {
                   {site.access_modes.map((m) => ACCESS_MODE_LABEL[m] ?? m).join(", ")}
                 </td>
                 <td className="p-3">{site.hotspot_count}</td>
-                <td className="p-3">{site.status}</td>
+                <td className="p-3">{site.open_incident_count}</td>
+                <td className="p-3">{STATUS_LABEL[site.status] ?? site.status}</td>
               </tr>
             ))}
           </tbody>

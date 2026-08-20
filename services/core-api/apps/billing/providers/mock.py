@@ -40,11 +40,15 @@ class MockPaymentProvider(PaymentProvider):
 
     scenario: str = "push_success"
     statuses: dict[str, str] = {}
+    amounts: dict[str, int] = {}
+    refunded: dict[str, int] = {}
 
     @classmethod
     def reset(cls) -> None:
         cls.scenario = "push_success"
         cls.statuses = {}
+        cls.amounts = {}
+        cls.refunded = {}
 
     @staticmethod
     def reference_for(order) -> str:
@@ -56,6 +60,7 @@ class MockPaymentProvider(PaymentProvider):
 
         reference = self.reference_for(order)
         type(self).statuses[reference] = "pending"
+        type(self).amounts[reference] = order.amount_xof
 
         if type(self).scenario == "redirect_required":
             return PaymentIntent(
@@ -73,6 +78,7 @@ class MockPaymentProvider(PaymentProvider):
         return PaymentStatus(
             external_reference=external_reference,
             status=type(self).statuses.get(external_reference, "pending"),
+            amount_xof=type(self).amounts.get(external_reference, 0),
         )
 
     def verify_webhook(self, headers, body: bytes) -> bool:
@@ -91,7 +97,13 @@ class MockPaymentProvider(PaymentProvider):
         )
 
     def refund(self, payment, amount_xof: int) -> RefundResult:
-        raise NotImplementedError("Le remboursement arrive en phase 6 (§8.5, DW-P6-03).")
+        reference = payment.external_reference
+        type(self).refunded[reference] = type(self).refunded.get(reference, 0) + amount_xof
+        return RefundResult(
+            external_reference=f"REF-{reference}",
+            amount_xof=amount_xof,
+            status="succeeded",
+        )
 
     def healthcheck(self) -> bool:
         return type(self).scenario != "provider_unavailable"

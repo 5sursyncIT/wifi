@@ -3,73 +3,58 @@ import Base from "../layouts/Base.astro";
 ---
 
 <Base title="Achat — Dakar WiFi">
-  <main class="mx-auto flex min-h-dvh max-w-md flex-col gap-6 px-5 py-8">
-    <header class="flex items-center gap-3">
-      <div
-        class="size-12 shrink-0 rounded-lg bg-[var(--color-brand)]"
-        role="img"
-        aria-label="Emplacement du logo officiel"
-      >
-      </div>
-      <div>
-        <p class="text-xl font-bold">Dakar WiFi</p>
-        <p class="text-sm text-[var(--color-muted)]">Paiement de votre forfait</p>
-      </div>
+  <main class="mx-auto flex min-h-[calc(100dvh-4.5rem)] max-w-md flex-col gap-5 px-5 py-6" data-i18n-title="purchase_title">
+    <header>
+      <p class="text-2xl font-bold tracking-tight" data-i18n="brand">Dakar WiFi</p>
+      <p class="mt-0.5 text-sm text-muted" data-i18n="payment_subtitle">Paiement de votre forfait</p>
     </header>
 
-    <section
-      id="attente"
-      class="rounded-lg border-2 border-amber-500 bg-amber-50 p-5 text-amber-950"
-      hidden
-    >
-      <h1 class="text-xl font-bold">Validez sur votre téléphone</h1>
+    <section id="attente" class="panel-info rounded-xl p-5" hidden>
+      <h1 class="text-xl font-bold" data-i18n="validate_on_phone">Validez sur votre téléphone</h1>
       <p id="instructions" class="mt-3"></p>
       <p id="compte-a-rebours" class="mt-4 font-bold" role="timer"></p>
     </section>
 
-    <section
-      id="redirection"
-      class="rounded-lg border-2 border-amber-500 bg-amber-50 p-5 text-amber-950"
-      hidden
-    >
-      <h1 class="text-xl font-bold">Terminez le paiement</h1>
-      <p class="mt-3">
+    <section id="redirection" class="panel-info rounded-xl p-5" hidden>
+      <h1 class="text-xl font-bold" data-i18n="finish_payment">Terminez le paiement</h1>
+      <p class="mt-3" data-i18n="finish_payment_body">
         Ouvrez ce lien dans votre navigateur complet pour terminer le paiement.
       </p>
       <a
         id="lien-paiement"
-        class="mt-5 block w-full rounded-lg bg-[var(--color-brand)] px-4 py-3 text-center text-base font-bold text-white"
+        class="mt-5 block w-full rounded-xl bg-brand px-4 py-3.5 text-center text-base font-bold text-white"
         href="#"
         rel="noopener"
+        data-i18n="open_payment_page"
       >
         Ouvrir la page de paiement
       </a>
     </section>
 
-    <section
-      id="succes"
-      class="rounded-lg border-2 border-[var(--color-brand)] bg-[color-mix(in_srgb,var(--color-brand)_8%,white)] p-5"
-      hidden
-    >
-      <h1 class="text-xl font-bold">Votre accès est activé</h1>
+    <section id="succes" class="panel-ok rounded-xl p-5" hidden>
+      <h1 class="text-xl font-bold" data-i18n="access_activated">Votre accès est activé</h1>
       <p id="recu" class="mt-3"></p>
       <p id="erreur" class="mt-3 font-medium text-red-700" role="alert" hidden></p>
     </section>
 
-    <section id="echec" class="rounded-lg border-2 border-red-600 bg-red-50 p-5 text-red-900" hidden>
-      <h1 class="text-xl font-bold">Le paiement n'a pas abouti</h1>
+    <section id="echec" class="panel-error rounded-xl p-5" hidden>
+      <h1 class="text-xl font-bold" data-i18n="payment_failed">Le paiement n'a pas abouti</h1>
       <p id="raison-echec" class="mt-3" role="alert"></p>
     </section>
 
-    <footer class="mt-auto text-xs text-[var(--color-muted)]">
+    <footer class="mt-auto pb-2 text-xs text-muted" data-i18n="footer_secure">
       Ville de Dakar — paiement sécurisé
     </footer>
   </main>
 </Base>
 
 <script>
+  import { localeFromWindow, translate, type MessageKey } from "../lib/i18n";
   import { createPortalClient } from "../lib/portal";
   import { pollOrder } from "../lib/purchase";
+
+  const t = (key: MessageKey, vars?: Record<string, string | number>) =>
+    translate(localeFromWindow(window), key, vars);
 
   const client = createPortalClient(
     import.meta.env.PUBLIC_API_BASE_URL ?? "http://localhost:8000",
@@ -104,7 +89,7 @@ import Base from "../layouts/Base.astro";
     const tick = () => {
       const left = Math.max(0, Math.round((deadline - Date.now()) / 1000));
       const minutes = String(Math.floor(left / 60)).padStart(2, "0");
-      node.textContent = `Temps restant : ${minutes}:${String(left % 60).padStart(2, "0")}`;
+      node.textContent = t("remaining_time", { time: `${minutes}:${String(left % 60).padStart(2, "0")}` });
       if (left === 0) window.clearInterval(countdown);
     };
     tick();
@@ -121,17 +106,19 @@ import Base from "../layouts/Base.astro";
     window.clearInterval(countdown);
     const receiptNode = document.getElementById("recu")!;
     const errorNode = document.getElementById("erreur")!;
-    receiptNode.textContent = "Paiement confirmé. Votre accès est actif.";
+    receiptNode.textContent = t("payment_confirmed");
     errorNode.hidden = true;
     show("succes");
 
     try {
       const receipt = await client.getReceipt(orderId);
-      receiptNode.textContent =
-        `Commande ${receipt.order_number} — ${receipt.amount_xof} ${receipt.currency}`;
+      receiptNode.textContent = t("receipt_line", {
+        number: receipt.order_number,
+        amount: receipt.amount_xof,
+        currency: receipt.currency ?? "",
+      });
     } catch {
-      errorNode.textContent =
-        "Le paiement a réussi, mais le reçu n’est pas disponible pour le moment.";
+      errorNode.textContent = t("receipt_unavailable");
       errorNode.hidden = false;
     }
   }
@@ -157,11 +144,11 @@ import Base from "../layouts/Base.astro";
         deadline,
         getOrder: (orderId) => client.getOrder(orderId),
         onActive: () => succeed(order.id),
-        onExpired: () => fail("Le délai de paiement est écoulé."),
-        onTerminal: () => fail("Le paiement a été refusé ou la commande a expiré."),
+        onExpired: () => fail(t("payment_expired")),
+        onTerminal: () => fail(t("payment_refused")),
       });
     } catch {
-      fail("La commande n'a pas pu être créée. Réessayez dans un instant.");
+      fail(t("order_create_failed"));
     }
   }
 

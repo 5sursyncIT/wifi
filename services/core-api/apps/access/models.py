@@ -5,7 +5,7 @@ from django.db import models
 from apps.catalog.models import PlanVersion
 from apps.citizens.models import Citizen
 from apps.core.models import UUIDTimeStampedModel
-from apps.network.models import Zone
+from apps.network.models import Hotspot, Zone
 
 
 class ZoneFreePolicy(UUIDTimeStampedModel):
@@ -86,6 +86,14 @@ class Entitlement(UUIDTimeStampedModel):
     starts_at = models.DateTimeField()
     ends_at = models.DateTimeField(null=True, blank=True)
 
+    voucher = models.ForeignKey(
+        "promotions.Voucher",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="entitlements",
+    )
+
     # Link to the RADIUS identity (the `RadiusBinding` concept of §9). Kept on the
     # entitlement while a single binding per right is enough; the outbox of §11.2
     # arrives with payments in phase 4.
@@ -108,3 +116,37 @@ class Entitlement(UUIDTimeStampedModel):
     @property
     def is_live(self):
         return self.status == self.Status.ACTIVE
+
+
+class NetworkSession(UUIDTimeStampedModel):
+    """A session as the platform recorded it (§8.8, §9).
+
+    Bytes stay at zero until RADIUS accounting is imported (DW-P5-04). The row is
+    still opened on activation so the citizen can list and disconnect sessions.
+    """
+
+    citizen = models.ForeignKey(Citizen, on_delete=models.PROTECT, related_name="network_sessions")
+    entitlement = models.OneToOneField(
+        Entitlement, on_delete=models.PROTECT, related_name="network_session"
+    )
+    hotspot = models.ForeignKey(
+        Hotspot,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="network_sessions",
+    )
+    radius_session_id = models.CharField(max_length=120, unique=True)
+    start_at = models.DateTimeField()
+    stop_at = models.DateTimeField(null=True, blank=True)
+    bytes_in = models.PositiveBigIntegerField(default=0)
+    bytes_out = models.PositiveBigIntegerField(default=0)
+
+    class Meta:
+        ordering = ["-start_at"]
+        indexes = [models.Index(fields=["citizen", "-start_at"])]
+        verbose_name = "session réseau"
+        verbose_name_plural = "sessions réseau"
+
+    def __str__(self):
+        return self.radius_session_id

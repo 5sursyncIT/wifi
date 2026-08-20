@@ -76,3 +76,82 @@ class EntitlementSerializer(serializers.Serializer):
 
 class EntitlementListSerializer(serializers.Serializer):
     entitlements = EntitlementSerializer(many=True)
+
+
+class SessionSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    started_at = serializers.DateTimeField(source="start_at")
+    ended_at = serializers.DateTimeField(source="stop_at", allow_null=True)
+    bytes_in = serializers.IntegerField()
+    bytes_out = serializers.IntegerField()
+    site = serializers.SerializerMethodField()
+
+    def get_site(self, session) -> str:
+        if session.hotspot_id is None:
+            return ""
+        return session.hotspot.zone.site.name
+
+
+class SessionListSerializer(serializers.Serializer):
+    sessions = SessionSerializer(many=True)
+
+
+class ConsentExportSerializer(serializers.Serializer):
+    type = serializers.CharField()
+    version = serializers.CharField()
+    accepted_at = serializers.DateTimeField()
+    source = serializers.CharField()  # type: ignore[assignment]
+
+
+class DeviceExportSerializer(serializers.Serializer):
+    mac_hash = serializers.CharField()
+    label = serializers.CharField()  # type: ignore[assignment]
+    first_seen_at = serializers.DateTimeField()
+    last_seen_at = serializers.DateTimeField()
+
+
+class EntitlementExportSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    source = serializers.CharField()  # type: ignore[assignment]
+    status = serializers.CharField()
+    zone = serializers.CharField()
+    plan = serializers.CharField()
+    starts_at = serializers.DateTimeField()
+    ends_at = serializers.DateTimeField(allow_null=True)
+
+
+class OrderExportSerializer(serializers.Serializer):
+    order_number = serializers.CharField()
+    amount_xof = serializers.IntegerField()
+    currency = serializers.CharField()
+    status = serializers.CharField()
+    created_at = serializers.DateTimeField()
+    paid_at = serializers.DateTimeField(allow_null=True)
+
+
+class TicketExportSerializer(serializers.Serializer):
+    ticket_number = serializers.CharField()
+    category = serializers.CharField()
+    status = serializers.CharField()
+    opened_at = serializers.DateTimeField()
+
+
+class AccountCitizenSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    phone_e164 = serializers.CharField()
+    email = serializers.CharField()
+    first_name = serializers.CharField()
+    last_name = serializers.CharField()
+    preferred_language = serializers.CharField()
+    status = serializers.CharField()
+    verified_at = serializers.DateTimeField(allow_null=True)
+
+
+class AccountExportSerializer(serializers.Serializer):
+    exported_at = serializers.DateTimeField()
+    citizen = AccountCitizenSerializer()
+    consents = ConsentExportSerializer(many=True)
+    devices = DeviceExportSerializer(many=True)
+    entitlements = EntitlementExportSerializer(many=True)
+    orders = OrderExportSerializer(many=True)
+    tickets = TicketExportSerializer(many=True)

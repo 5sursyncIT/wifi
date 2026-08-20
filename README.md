@@ -5,10 +5,22 @@ back-office municipal, et intégration OpenWISP pour le réseau et le RADIUS.
 
 Le cahier des charges fait foi : [`CAHIER_DES_CHARGES_DAKAR_WIFI.md`](CAHIER_DES_CHARGES_DAKAR_WIFI.md).
 
-> **État : Phase 4 livrée.** Un citoyen s'inscrit par OTP, accepte les conditions
-> versionnées, puis obtient l'accès gratuit de sa zone ou achète une offre payante.
-> Le paiement mock passe par un webhook signé, active l'accès de manière garantie et
-> présente un reçu. Les écrans interrogent l'API réelle, jamais des données figées.
+> **État : Phase 6 livrée ; comptes citoyens, incidents réseau et i18n portail en place.**
+> Un citoyen s'inscrit par OTP, accepte les conditions, puis obtient l'accès gratuit,
+> achète une offre payante, ou saisit un coupon. Il peut exporter ses données,
+> supprimer son compte (anonymisation, pièces financières conservées), ouvrir un
+> ticket d'aide et se déconnecter. Une borne hors ligne ou dégradée ouvre un
+> incident (cycle P1–P4, délais de prise en charge). Les codes sont hachés ; la
+> rédemption passe par la même outbox que l'achat. Sponsors et campagnes se gèrent
+> dans l'admin Django, avec une vue partenaire limitée à ses campagnes.
+> Remboursements, rapprochement mock et export CSV audité (sans téléphone) sont
+> disponibles. Les tableaux de bord graphiques restent hors périmètre
+> (listes + CSV). Le portail propose le français, le wolof (libellés courts) et
+> l'anglais (sélecteur FR / WO / EN), avec les armoiries officielles de la Ville
+> ([mairie de Dakar](https://mairiedakar.sn/)). L'adaptateur OpenWISP est livré ;
+> le mock reste le défaut.
+> Ansible staging, l'import accounting RADIUS et l'essai sur borne réelle sont
+> reportés. La Phase 7 (Wave/Orange Money réels) attend les sandboxes (§18).
 
 Pour voir le portail avec les données de démonstration :
 `make dev`, puis <http://localhost:3000/?nas_id=demo-nas-001>
@@ -49,6 +61,8 @@ make seed
 ```
 
 Cette commande **refuse de s'exécuter** lorsque `ENVIRONMENT=production`.
+En local, elle imprime aussi cinq coupons mock `DEMO-TEST-0001` … `DEMO-TEST-0005`
+(une seule fois, étiquetés comme tels).
 
 `make help` liste toutes les cibles disponibles.
 

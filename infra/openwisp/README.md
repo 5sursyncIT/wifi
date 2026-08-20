@@ -37,8 +37,8 @@ OPENWISP_VERSION=25.10.4 docker compose -f infra/docker-openwisp/docker-compose.
 
 Le script est idempotent. Il crée l'organisation `Ville de Dakar`, les groupes
 RADIUS correspondant aux `radius_profile_ref` de démonstration, l'utilisateur de
-service `dakar-service` et le NAS fictif `0.0.0.0/0` avec le secret fictif
-`lab-nas-secret`.
+service `dakar-service` et le NAS fictif `0.0.0.0/0`. Le secret RADIUS du NAS
+vient de `OPENWISP_NAS_SECRET` (sentinelle `lab-nas-secret` dans `.env.example`).
 
 Recopier les deux lignes imprimées par le script dans le fichier `.env` à la racine :
 

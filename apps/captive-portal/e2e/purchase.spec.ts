@@ -33,7 +33,7 @@ async function startPurchase(
 ) {
   await page.goto(`/?nas_id=${NAS_ID}`);
   await page.getByRole("button", { name: "Acheter 1 heure", exact: true }).click();
-  await page.getByLabel("Numéro au format international").fill(phone);
+  await page.getByLabel("Numéro de téléphone").fill(phone);
   await page.getByLabel(/J’accepte les conditions/).check();
   await page.getByRole("button", { name: "Recevoir un code" }).click();
   const code = page.getByLabel("Code à six chiffres");

@@ -4,6 +4,7 @@ Every response is derived from the network identifier presented by the hotspot.
 Query parameters a browser could forge — a zone, a price, an offer — are never read.
 """
 
+from django.conf import settings
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -11,6 +12,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from apps.core.i18n import locale_from_request, localized
+from apps.incidents.models import Incident
 from apps.network.models import Site
 from apps.portal.serializers import (
     ErrorSerializer,
@@ -25,6 +28,13 @@ NAS_ID_PARAMETER = OpenApiParameter(
     description="Identifiant réseau présenté par la borne. Seule source de vérité "
     "pour résoudre la zone.",
     required=True,
+    type=str,
+)
+LANG_PARAMETER = OpenApiParameter(
+    name="lang",
+    description="Langue du catalogue (fr, wo, en). Le français est la référence ; "
+    "une traduction absente retombe sur le français.",
+    required=False,
     type=str,
 )
 REDIRECT_PARAMETER = OpenApiParameter(
@@ -72,7 +82,7 @@ def _resolve(request):
 
 
 @extend_schema(
-    parameters=[NAS_ID_PARAMETER, REDIRECT_PARAMETER],
+    parameters=[NAS_ID_PARAMETER, REDIRECT_PARAMETER, LANG_PARAMETER],
     responses={200: PortalContextSerializer, 400: ErrorSerializer, 404: ErrorSerializer},
     summary="Contexte du portail pour une borne",
     tags=["portail"],
@@ -90,12 +100,20 @@ def portal_context(request: Request) -> Response:
         "fallback": {"active": context.is_fallback, "reason": context.fallback_reason},
         "plans": context.plans,
         "redirect_url": safe_redirect_url(request.query_params.get("redirect_url")),
+        "mocks": {
+            "network": settings.NETWORK_PROVIDER == "mock",
+            "payment": settings.PAYMENT_PROVIDER == "mock",
+        },
     }
-    return Response(PortalContextSerializer(payload).data)
+    return Response(
+        PortalContextSerializer(
+            payload, context={"locale": locale_from_request(request)}
+        ).data
+    )
 
 
 @extend_schema(
-    parameters=[NAS_ID_PARAMETER],
+    parameters=[NAS_ID_PARAMETER, LANG_PARAMETER],
     responses={200: PortalPlansSerializer, 400: ErrorSerializer, 404: ErrorSerializer},
     summary="Offres disponibles pour une borne",
     tags=["portail"],
@@ -107,10 +125,15 @@ def portal_plans(request: Request) -> Response:
     if error is not None:
         return error
 
-    return Response(PortalPlansSerializer({"plans": context.plans}).data)
+    return Response(
+        PortalPlansSerializer(
+            {"plans": context.plans}, context={"locale": locale_from_request(request)}
+        ).data
+    )
 
 
 @extend_schema(
+    parameters=[LANG_PARAMETER],
     responses={200: PublicSitesSerializer},
     summary="Carte publique des points d'accès",
     tags=["portail"],
@@ -123,20 +146,29 @@ def public_hotspots(request: Request) -> Response:
     Only sites explicitly marked public and actually geolocated are returned, and
     no equipment identifier ever leaves this endpoint (§8.9).
     """
+    locale = locale_from_request(request)
     sites = (
         Site.objects.filter(is_public=True, latitude__isnull=False, longitude__isnull=False)
-        .prefetch_related("zones__hotspots")
+        .select_related("organization")
+        .prefetch_related("zones__hotspots__incidents")
         .order_by("name")
     )
 
     payload = [
         {
-            "name": site.name,
+            "name": localized(site, "name", locale),
             "address": site.address,
             "latitude": site.latitude,
             "longitude": site.longitude,
             "status": site.status,
             "hotspot_count": sum(zone.hotspots.count() for zone in site.zones.all()),
+            "open_incident_count": sum(
+                1
+                for zone in site.zones.all()
+                for hotspot in zone.hotspots.all()
+                for incident in hotspot.incidents.all()
+                if incident.status in Incident.OPEN_STATUSES
+            ),
             "access_modes": sorted({zone.access_mode for zone in site.zones.all()}),
         }
         for site in sites

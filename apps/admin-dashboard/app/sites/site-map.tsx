@@ -4,10 +4,10 @@ import type { PublicSite } from "@dakar-wifi/api-client";
 import { useEffect, useRef } from "react";
 
 const ACCESS_MODE_COLOR: Record<string, string> = {
-  free: "#0b6b5b",
-  paid: "#8a4b0b",
-  sponsored: "#4b3f8a",
-  hybrid: "#0b5b8a",
+  free: "#157a38",
+  paid: "#004090",
+  sponsored: "#9a7b00",
+  hybrid: "#c8101e",
 };
 
 function markerColor(site: PublicSite): string {
@@ -55,7 +55,10 @@ export function SiteMap({ sites }: { sites: PublicSite[] }) {
         });
         marker.bindPopup(
           `<strong>${site.name}</strong><br>${site.address}<br>` +
-            `${site.hotspot_count} borne(s) — ${site.status}`,
+            `${site.hotspot_count} borne(s) — ${site.status}` +
+            (site.open_incident_count
+              ? `<br>${site.open_incident_count} incident(s) ouvert(s)`
+              : ""),
         );
         cluster.addLayer(marker);
       }

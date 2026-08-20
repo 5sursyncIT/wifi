@@ -20,6 +20,8 @@ class Organization(UUIDTimeStampedModel):
     name = models.CharField(max_length=150, unique=True)
     type = models.CharField(max_length=20, choices=Type.choices, default=Type.CITY)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
+    # Overlay of the French `name` for wo/en. French stays in `name` (ADR-0003).
+    i18n = models.JSONField(default=dict, blank=True)
     # Name of the matching OpenWISP organization. Provisioned there, referenced here:
     # the business database never writes into OpenWISP (ADR-0001).
     openwisp_org_slug = models.SlugField(max_length=100, blank=True)
@@ -65,6 +67,7 @@ class Site(UUIDTimeStampedModel):
     )
     internet_provider = models.CharField(max_length=100, blank=True)
     escalation_contact = models.CharField(max_length=150, blank=True)
+    i18n = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ["name"]
@@ -105,6 +108,7 @@ class Zone(UUIDTimeStampedModel):
     # Business screens render in this timezone; storage stays UTC (§9).
     timezone = models.CharField(max_length=50, default="Africa/Dakar")
     welcome_message = models.TextField(blank=True)
+    i18n = models.JSONField(default=dict, blank=True)
 
     class Meta:
         ordering = ["code"]
